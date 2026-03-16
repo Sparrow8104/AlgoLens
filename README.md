@@ -2,9 +2,6 @@
 
 ## Overview
 
-**AlgoLens** is a competitive programming analytics platform built around data from **Codeforces**.
-The platform helps users **track performance, analyze ratings, compare solutions, and understand algorithmic differences using AI**.
-
 The goal of this project is to provide deeper insights into competitive programming progress while also allowing users to **compare their code with other programmers' solutions**.
 
 This project is designed as a **full-stack analytics tool** that combines performance tracking, data visualization, and AI-assisted code analysis.
@@ -311,44 +308,6 @@ Stores cached submission code.
 comparisons
 Stores comparison history and analysis results.
 
----
-
-## Development Roadmap
-
-Day 1
-Project setup and database configuration.
-
-Day 2
-User profile + rating data.
-
-Day 3
-Contest history + rating graph.
-
-Day 4
-Upcoming contests.
-
-Day 5
-Submission statistics.
-
-Day 6
-Difficulty distribution.
-
-Day 7
-Rating comparison.
-
-Day 8
-Submission finder.
-
-Day 9
-Code comparison and retrieval.
-
-Day 10
-AI explanation and similarity detection.
-
-Day 11–12
-Optimization and submission caching.
-
----
 
 ## Goals of the Project
 
