@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: algo_lens
   config:
     import: optional:application-secret.yml
 
