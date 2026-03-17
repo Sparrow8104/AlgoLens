@@ -1,6 +1,6 @@
 package com.algolens.algo_lens.controller;
 
-import com.algolens.algo_lens.services.CodeforcesServices;
+import com.algolens.algo_lens.services.UserServices;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
 
-    private  final CodeforcesServices codeforcesServices;
-    public UserController(CodeforcesServices codeforcesServices) {{
+    private  final UserServices codeforcesServices;
+    public UserController(UserServices codeforcesServices) {{
     this.codeforcesServices = codeforcesServices;}
     }
 
