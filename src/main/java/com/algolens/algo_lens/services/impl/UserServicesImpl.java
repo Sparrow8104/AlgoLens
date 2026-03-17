@@ -4,6 +4,8 @@ package com.algolens.algo_lens.services.impl;
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.ContestDTO;
 import com.algolens.algo_lens.dtos.userInfo.UserProfileDTO;
+import com.algolens.algo_lens.dtos.userRating.RatingChangeDTO;
+import com.algolens.algo_lens.dtos.userRating.UserRatingResponseDTO;
 import com.algolens.algo_lens.dtos.userStatus.ProblemDTO;
 import com.algolens.algo_lens.dtos.userStatus.SubmissionDTO;
 import com.algolens.algo_lens.dtos.userStatus.UserStatusResponseDTO;
@@ -13,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +34,7 @@ public class UserServicesImpl implements UserServices {
     @Override
     public UserProfileDTO getUserProfile(String handle) {
         int problemsSolved = calculateProblemsSolved(handle);
+        int contestsParticipated = calculateContestsParticipated(handle);
         return null;
     }
 
@@ -53,5 +57,22 @@ public class UserServicesImpl implements UserServices {
             }
         }
         return solvedProblems.size();
+    }
+
+    public int calculateContestsParticipated(String handle) {
+        UserRatingResponseDTO response=codeforcesApiClient.getUserRatings(handle);
+        List<RatingChangeDTO> contestsParticipated=response.getResult();
+        return contestsParticipated.size();
+    }
+
+    public int calculateStreakDays(String handle) {
+        UserStatusResponseDTO response=codeforcesApiClient.getUserSubmissions(handle);
+        List<SubmissionDTO> submissions=response.getResult();
+
+        List<SubmissionDTO> solvedSubmissions=submissions.stream()
+                .filter(s->"OK".equals(s.getVerdict()))
+                .toList();
+
+
     }
 }
