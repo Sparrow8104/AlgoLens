@@ -2,6 +2,7 @@ package com.algolens.algo_lens.controller;
 
 import com.algolens.algo_lens.dtos.ContestDTO;
 import com.algolens.algo_lens.dtos.RatingGraphDTO;
+import com.algolens.algo_lens.dtos.SubmissionStatsDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
 import com.algolens.algo_lens.services.UserServices;
 import org.springframework.http.ResponseEntity;
@@ -40,6 +41,11 @@ public class UserController {
         return ResponseEntity.ok(ratings);
     }
 
+    @GetMapping("/{handle}/submission-stats")
+    public ResponseEntity<SubmissionStatsDTO> getUserSubmissionStats(@PathVariable String handle){
+        SubmissionStatsDTO stats=userServices.getSubmissionStats(handle);
+        return ResponseEntity.ok(stats);
+    }
 
 
 }

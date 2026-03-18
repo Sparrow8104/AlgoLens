@@ -4,6 +4,7 @@ package com.algolens.algo_lens.services.impl;
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.ContestDTO;
 import com.algolens.algo_lens.dtos.RatingGraphDTO;
+import com.algolens.algo_lens.dtos.SubmissionStatsDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserInfoResponseDto;
 import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
@@ -18,9 +19,7 @@ import com.algolens.algo_lens.services.UserServices;
 import com.algolens.algo_lens.services.stats.UserStatsService;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class UserServicesImpl implements UserServices {
@@ -107,6 +106,35 @@ public class UserServicesImpl implements UserServices {
                         RatingChangeDTO::getRatingUpdateTimeSeconds))
                 .map(userMapper::mapToRatingGraphDTO)
                 .toList();
+    }
+
+    @Override
+    public SubmissionStatsDTO getSubmissionStats(String handle) {
+        UserStatusResponseDTO userStatusResponseDTO=codeforcesApiClient.getUserSubmissions(handle);
+        if(userStatusResponseDTO==null||userStatusResponseDTO.getResult()==null) {
+            throw new ExternalApiException("Failed to fetch submission stats from codeforces");
+        }
+        List<SubmissionDTO> submissionDTOList = userStatusResponseDTO.getResult();
+        Set<String> solvedProblemSet=new HashSet<>();
+        Map<String,Integer> verdictsCounts=new HashMap<>();
+        for(SubmissionDTO submissionDTO:submissionDTOList) {
+            verdictsCounts.merge(submissionDTO.getVerdict(),1,Integer::sum);
+            if("Ok".equals(submissionDTO.getVerdict())) {
+                String problemKey=submissionDTO.getProblem().getContestId()+"-"+submissionDTO.getProblem().getIndex();
+                solvedProblemSet.add(problemKey);
+            }
+        }
+        int totalSubmissions=submissionDTOList.size();
+        int solvedProblems=solvedProblemSet.size();
+        int unsolvedProblems=totalSubmissions-solvedProblems;
+
+        return SubmissionStatsDTO
+                .builder()
+                .totalSubmissions(totalSubmissions)
+                .solvedProblems(solvedProblems)
+                .unSolvedProblems(unsolvedProblems)
+                .verdictsCount(verdictsCounts)
+                .build();
     }
 
 
