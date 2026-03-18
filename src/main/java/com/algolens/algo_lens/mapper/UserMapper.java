@@ -1,12 +1,15 @@
 package com.algolens.algo_lens.mapper;
 
 import com.algolens.algo_lens.dtos.ContestDTO;
+import com.algolens.algo_lens.dtos.RatingGraphDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
 import com.algolens.algo_lens.dtos.user.userRating.RatingChangeDTO;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Component
 public class UserMapper {
@@ -39,6 +42,19 @@ public class UserMapper {
                 .oldRating(ratingChangeDTO.getOldRating())
                 .newRating(ratingChangeDTO.getNewRating())
                 .ratingChange(ratingChangeDTO.getNewRating() - ratingChangeDTO.getOldRating())
+                .build();
+    }
+
+    public RatingGraphDTO mapToRatingGraphDTO(RatingChangeDTO ratingChangeDTO){
+        return RatingGraphDTO.builder()
+                .contestId(ratingChangeDTO.getContestId())
+                .contestName(ratingChangeDTO.getContestName())
+                .rating(ratingChangeDTO.getNewRating())
+                .date(Instant.ofEpochSecond(
+                        ratingChangeDTO.getRatingUpdateTimeSeconds())
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+                )
                 .build();
     }
 }

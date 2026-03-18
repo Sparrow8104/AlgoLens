@@ -3,6 +3,7 @@ package com.algolens.algo_lens.services.impl;
 
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.ContestDTO;
+import com.algolens.algo_lens.dtos.RatingGraphDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserInfoResponseDto;
 import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
@@ -91,6 +92,20 @@ public class UserServicesImpl implements UserServices {
                 .stream()
                 .sorted(Comparator.comparing(RatingChangeDTO::getContestId).reversed())
                 .map(userMapper::mapToContestDTO)
+                .toList();
+    }
+
+    @Override
+    public List<RatingGraphDTO> getUserRatingGraph(String handle) {
+        UserRatingResponseDTO userRatingResponseDTO = codeforcesApiClient.getUserRatings(handle);
+        if(userRatingResponseDTO==null||userRatingResponseDTO.getResult().isEmpty()) {
+            throw new ExternalApiException("Failed to fetch rating graph from codeforces");
+        }
+        return userRatingResponseDTO.getResult()
+                .stream()
+                .sorted(Comparator.comparing(
+                        RatingChangeDTO::getRatingUpdateTimeSeconds))
+                .map(userMapper::mapToRatingGraphDTO)
                 .toList();
     }
 

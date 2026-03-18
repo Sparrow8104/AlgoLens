@@ -1,6 +1,7 @@
 package com.algolens.algo_lens.controller;
 
 import com.algolens.algo_lens.dtos.ContestDTO;
+import com.algolens.algo_lens.dtos.RatingGraphDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
 import com.algolens.algo_lens.services.UserServices;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,12 @@ public class UserController {
     public ResponseEntity<List<ContestDTO>> getUserContestHistory(@PathVariable String handle){
         List<ContestDTO> contests = userServices.getUserContestHistory(handle);
         return ResponseEntity.ok(contests);
+    }
+
+    @GetMapping("/{handle}/rating-graph")
+    public ResponseEntity<List<RatingGraphDTO>> getUserRatingGraph(@PathVariable String handle){
+        List<RatingGraphDTO> ratings = userServices.getUserRatingGraph(handle);
+        return ResponseEntity.ok(ratings);
     }
 
 
