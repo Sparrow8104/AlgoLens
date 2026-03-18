@@ -1,4 +1,4 @@
-package com.algolens.algo_lens.dtos.userRating;
+package com.algolens.algo_lens.dtos.user.userRating;
 
 import lombok.Getter;
 import lombok.Setter;

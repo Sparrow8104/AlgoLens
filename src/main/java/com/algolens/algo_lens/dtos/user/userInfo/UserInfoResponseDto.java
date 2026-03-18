@@ -1,4 +1,4 @@
-package com.algolens.algo_lens.dtos.userInfo;
+package com.algolens.algo_lens.dtos.user.userInfo;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -1,10 +1,10 @@
 package com.algolens.algo_lens.services.stats;
 
 
-import com.algolens.algo_lens.dtos.userInfo.CodeforcesUserDTO;
-import com.algolens.algo_lens.dtos.userRating.UserRatingResponseDTO;
-import com.algolens.algo_lens.dtos.userStatus.ProblemDTO;
-import com.algolens.algo_lens.dtos.userStatus.SubmissionDTO;
+import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
+import com.algolens.algo_lens.dtos.user.userRating.UserRatingResponseDTO;
+import com.algolens.algo_lens.dtos.user.userStatus.ProblemDTO;
+import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;

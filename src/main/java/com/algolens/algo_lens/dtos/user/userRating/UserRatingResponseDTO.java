@@ -1,6 +1,5 @@
-package com.algolens.algo_lens.dtos.userRating;
+package com.algolens.algo_lens.dtos.user.userRating;
 
-import com.algolens.algo_lens.dtos.userInfo.UserProfileDTO;
 import lombok.Getter;
 import lombok.Setter;
 

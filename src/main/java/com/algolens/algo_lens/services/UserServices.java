@@ -1,11 +1,13 @@
 package com.algolens.algo_lens.services;
 
 import com.algolens.algo_lens.dtos.ContestDTO;
-import com.algolens.algo_lens.dtos.userInfo.UserProfileDTO;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
+
+import java.util.List;
 
 public interface UserServices {
 
     UserProfileDTO getUserProfile(String handle);
+
+    List<ContestDTO> getUserContestHistory(String handle);
 }

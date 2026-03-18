@@ -1,4 +1,4 @@
-package com.algolens.algo_lens.dtos.userStatus;
+package com.algolens.algo_lens.dtos.user.userStatus;
 
 import lombok.Getter;
 import lombok.Setter;

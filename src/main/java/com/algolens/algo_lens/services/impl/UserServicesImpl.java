@@ -3,14 +3,13 @@ package com.algolens.algo_lens.services.impl;
 
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.ContestDTO;
-import com.algolens.algo_lens.dtos.userInfo.CodeforcesUserDTO;
-import com.algolens.algo_lens.dtos.userInfo.UserInfoResponseDto;
-import com.algolens.algo_lens.dtos.userInfo.UserProfileDTO;
-import com.algolens.algo_lens.dtos.userRating.RatingChangeDTO;
-import com.algolens.algo_lens.dtos.userRating.UserRatingResponseDTO;
-import com.algolens.algo_lens.dtos.userStatus.ProblemDTO;
-import com.algolens.algo_lens.dtos.userStatus.SubmissionDTO;
-import com.algolens.algo_lens.dtos.userStatus.UserStatusResponseDTO;
+import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
+import com.algolens.algo_lens.dtos.user.userInfo.UserInfoResponseDto;
+import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
+import com.algolens.algo_lens.dtos.user.userRating.RatingChangeDTO;
+import com.algolens.algo_lens.dtos.user.userRating.UserRatingResponseDTO;
+import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
+import com.algolens.algo_lens.dtos.user.userStatus.UserStatusResponseDTO;
 import com.algolens.algo_lens.exception.ExternalApiException;
 import com.algolens.algo_lens.exception.UserNotFoundException;
 import com.algolens.algo_lens.mapper.UserMapper;
@@ -18,6 +17,7 @@ import com.algolens.algo_lens.services.UserServices;
 import com.algolens.algo_lens.services.stats.UserStatsService;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -81,7 +81,18 @@ public class UserServicesImpl implements UserServices {
         );
     }
 
-
+    @Override
+    public List<ContestDTO> getUserContestHistory(String handle) {
+        UserRatingResponseDTO userRatingResponseDTO = codeforcesApiClient.getUserRatings(handle);
+        if(userRatingResponseDTO==null||userRatingResponseDTO.getResult().isEmpty()) {
+            throw new ExternalApiException("Failed to fetch contest details from codeforces");
+        }
+        return userRatingResponseDTO.getResult()
+                .stream()
+                .sorted(Comparator.comparing(RatingChangeDTO::getContestId).reversed())
+                .map(userMapper::mapToContestDTO)
+                .toList();
+    }
 
 
 }
