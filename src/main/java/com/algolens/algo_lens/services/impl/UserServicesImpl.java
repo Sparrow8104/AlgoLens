@@ -11,19 +11,13 @@ import com.algolens.algo_lens.dtos.userRating.UserRatingResponseDTO;
 import com.algolens.algo_lens.dtos.userStatus.ProblemDTO;
 import com.algolens.algo_lens.dtos.userStatus.SubmissionDTO;
 import com.algolens.algo_lens.dtos.userStatus.UserStatusResponseDTO;
+import com.algolens.algo_lens.exception.ExternalApiException;
+import com.algolens.algo_lens.exception.UserNotFoundException;
 import com.algolens.algo_lens.mapper.UserMapper;
 import com.algolens.algo_lens.services.UserServices;
 import com.algolens.algo_lens.services.stats.UserStatsService;
-import org.springframework.cglib.core.Local;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -44,19 +38,40 @@ public class UserServicesImpl implements UserServices {
     public UserProfileDTO getUserProfile(String handle) {
 
         UserInfoResponseDto userInfoResponseDto = codeforcesApiClient.getUserInfo(handle);
-        if(userInfoResponseDto.getResult().isEmpty()) {
-            return null;
+        if(userInfoResponseDto==null||userInfoResponseDto.getResult().isEmpty()) {
+            throw new UserNotFoundException(
+                    "User not found with handle: " + handle
+            );
         }
+
         CodeforcesUserDTO codeforcesUserDTO = userInfoResponseDto.getResult().getFirst();
         UserStatusResponseDTO response = codeforcesApiClient.getUserSubmissions(handle);
+
+        if(response==null||response.getResult()==null) {
+            throw new ExternalApiException("API return null response");
+        }
         List<SubmissionDTO> submissionDTOList = response.getResult();
 
         UserRatingResponseDTO ratingResponse = codeforcesApiClient.getUserRatings(handle);
+        if(ratingResponse==null) {
+            throw new ExternalApiException("Failed to fetch data from codeforces");
+        }
 
-        int problemsSolved = userStatsService.calculateProblemsSolved(submissionDTOList);
-        int contestsParticipated = userStatsService.calculateContestsParticipated(ratingResponse);
-        int streakDays=userStatsService.calculateStreakDays(userStatsService.getSolvedDates(submissionDTOList));
-        LocalDate lastActiveDate=userStatsService.getLastActiveDate(codeforcesUserDTO);
+        int problemsSolved =
+                userStatsService.calculateProblemsSolved(submissionDTOList);
+
+        int contestsParticipated =
+                userStatsService.calculateContestsParticipated(ratingResponse);
+
+        Set<LocalDate> solvedDates =
+                userStatsService.getSolvedDates(submissionDTOList);
+
+        int streakDays=
+                userStatsService.calculateStreakDays(solvedDates);
+
+        LocalDate lastActiveDate=
+                userStatsService.getLastActiveDate(codeforcesUserDTO);
+
         return userMapper.mapToUserProfileDTO(
                 codeforcesUserDTO,
                 problemsSolved,
