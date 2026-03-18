@@ -20,19 +20,25 @@ public class CodeforcesApiClient {
     private final WebClient webClient;
 
     public UserInfoResponseDto getUserInfo(String handle){
-        return webClient.get()
-                .uri(uriBuilder ->
-                        uriBuilder
-                                .path("/user.info")
-                                .queryParam("handles",handle)
-                                .build()
-                )
-                .retrieve()
-                .bodyToMono(UserInfoResponseDto.class)
-                .block();
+        try{
+            return webClient.get()
+                    .uri(uriBuilder ->
+                            uriBuilder
+                                    .path("/user.info")
+                                    .queryParam("handles",handle)
+                                    .build()
+                    )
+                    .retrieve()
+                    .bodyToMono(UserInfoResponseDto.class)
+                    .block();
+        }catch (WebClientResponseException e){
+            throw new ExternalApiException("Failed to fetch user info from codeforces API");
+        }
+
     }
 
     public UserStatusResponseDTO getUserSubmissions(String handle) {
+        try {
             return webClient.get()
                     .uri(uriBuilder ->
                             uriBuilder
@@ -44,20 +50,29 @@ public class CodeforcesApiClient {
                     .bodyToMono(UserStatusResponseDTO.class)
                     .block();
 
+        }catch (WebClientResponseException e) {
+            throw new ExternalApiException("Failed to fetch submissions from codeforces API");
+        }
+
 
     }
 
     public UserRatingResponseDTO getUserRatings(String handle){
-        return webClient.get()
-                .uri(uriBuilder ->
-                        uriBuilder
-                                .path("/user.rating")
-                                .queryParam("handle",handle)
-                                .build()
-                )
-                .retrieve()
-                .bodyToMono(UserRatingResponseDTO.class)
-                .block();
+        try{
+            return webClient.get()
+                    .uri(uriBuilder ->
+                            uriBuilder
+                                    .path("/user.rating")
+                                    .queryParam("handle",handle)
+                                    .build()
+                    )
+                    .retrieve()
+                    .bodyToMono(UserRatingResponseDTO.class)
+                    .block();
+        }catch (WebClientResponseException e){
+            throw new ExternalApiException("Failed to fetch ratings from codeforces API");
+        }
+
     }
 
 
