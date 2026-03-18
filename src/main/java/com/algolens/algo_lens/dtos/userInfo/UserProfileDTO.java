@@ -1,7 +1,10 @@
 package com.algolens.algo_lens.dtos.userInfo;
 
+import lombok.Builder;
+
 import java.time.LocalDate;
 
+@Builder
 public record UserProfileDTO(String handle,
                              Integer rating,
                              Integer maxRating,

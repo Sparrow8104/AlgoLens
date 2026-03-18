@@ -2,9 +2,11 @@ package com.algolens.algo_lens.mapper;
 
 import com.algolens.algo_lens.dtos.userInfo.CodeforcesUserDTO;
 import com.algolens.algo_lens.dtos.userInfo.UserProfileDTO;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 
+@Component
 public class UserMapper {
     public UserProfileDTO mapToUserProfileDTO(
            CodeforcesUserDTO userInfo,

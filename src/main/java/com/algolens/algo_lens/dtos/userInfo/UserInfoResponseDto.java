@@ -9,6 +9,6 @@ import java.util.List;
 @Getter
 public class UserInfoResponseDto {
     private String status;
-    List<CodeforcesUserDTO> userProfileDTOList;
+    List<CodeforcesUserDTO> result;
 
 }

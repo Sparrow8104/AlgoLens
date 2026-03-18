@@ -11,5 +11,6 @@ public class CodeforcesUserDTO {
     private Integer maxRating;
     private String rank;
     private String avatar;
+    private Long lastOnlineTimeSeconds;
 
 }

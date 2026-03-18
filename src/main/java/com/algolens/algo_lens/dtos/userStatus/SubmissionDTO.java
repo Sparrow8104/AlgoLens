@@ -8,4 +8,5 @@ import lombok.Setter;
 public class SubmissionDTO {
     private String verdict;
     private ProblemDTO problem;
+    private Long creationTimeSeconds;
 }

@@ -8,5 +8,4 @@ import org.springframework.data.domain.Pageable;
 public interface UserServices {
 
     UserProfileDTO getUserProfile(String handle);
-    Page<ContestDTO> getUserContestHistory(String handle, Pageable pageable);
 }
