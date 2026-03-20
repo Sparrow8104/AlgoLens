@@ -4,7 +4,7 @@ import com.algolens.algo_lens.dtos.ContestDTO;
 import com.algolens.algo_lens.dtos.RatingGraphDTO;
 import com.algolens.algo_lens.dtos.SubmissionStatsDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
-import com.algolens.algo_lens.services.UserServices;
+import com.algolens.algo_lens.services.service.UserServices;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

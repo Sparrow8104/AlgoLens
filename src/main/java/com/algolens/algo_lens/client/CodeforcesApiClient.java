@@ -1,5 +1,6 @@
 package com.algolens.algo_lens.client;
 
+import com.algolens.algo_lens.dtos.contest.CodeforcesContestResponseDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserInfoResponseDto;
 import com.algolens.algo_lens.dtos.user.userRating.UserRatingResponseDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.UserStatusResponseDTO;
@@ -70,6 +71,23 @@ public class CodeforcesApiClient {
             throw new ExternalApiException("Failed to fetch ratings from codeforces API");
         }
 
+    }
+
+    public CodeforcesContestResponseDTO getContests(){
+        try{
+            return webClient.get()
+                    .uri(uriBuilder ->
+                            uriBuilder
+                                    .path("/contest.list")
+                                    .queryParam("gym",false)
+                                    .build()
+                    )
+                    .retrieve()
+                    .bodyToMono(CodeforcesContestResponseDTO.class)
+                    .block();
+        }catch (WebClientResponseException e){
+            throw new ExternalApiException("Failed to fetch contests from codeforces API");
+        }
     }
 
 

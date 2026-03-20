@@ -1,4 +1,4 @@
-package com.algolens.algo_lens.services;
+package com.algolens.algo_lens.services.service;
 
 import com.algolens.algo_lens.dtos.ContestDTO;
 import com.algolens.algo_lens.dtos.RatingGraphDTO;

@@ -15,7 +15,7 @@ import com.algolens.algo_lens.dtos.user.userStatus.UserStatusResponseDTO;
 import com.algolens.algo_lens.exception.ExternalApiException;
 import com.algolens.algo_lens.exception.UserNotFoundException;
 import com.algolens.algo_lens.mapper.UserMapper;
-import com.algolens.algo_lens.services.UserServices;
+import com.algolens.algo_lens.services.service.UserServices;
 import com.algolens.algo_lens.services.stats.UserStatsService;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
