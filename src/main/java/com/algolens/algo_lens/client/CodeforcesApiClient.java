@@ -80,6 +80,7 @@ public class CodeforcesApiClient {
                             uriBuilder
                                     .path("/contest.list")
                                     .queryParam("gym",false)
+                                    .queryParam("count", 10000)
                                     .build()
                     )
                     .retrieve()

@@ -1,8 +1,6 @@
 package com.algolens.algo_lens.mapper;
 
-import com.algolens.algo_lens.dtos.RatingGraphDTO;
 import com.algolens.algo_lens.dtos.comparison.RatingComparisonDTO;
-import com.algolens.algo_lens.dtos.comparison.SubmissionCompareRequestDTO;
 import com.algolens.algo_lens.dtos.comparison.SubmissionCompareResponseDTO;
 import com.algolens.algo_lens.dtos.comparison.UserSubmissionResultDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
@@ -25,7 +23,7 @@ public class ComparisonMapper {
                 .handle1(user1.getHandle())
                 .handle2(user2.getHandle())
                 .rating1(user1.getRating())
-                .rating2(user1.getRating())
+                .rating2(user2.getRating())
                 .ratingDelta(Math.abs(delta))
                 .higherRatedHandle(higherRated)
                 .maxRating1(user1.getMaxRating())
@@ -63,10 +61,10 @@ public class ComparisonMapper {
                 .build();
     }
 
-    public SubmissionCompareResponseDTO mapToSubmissionCompareRequestDTO(int contestId,
-                                                                        String index,
-                                                                        UserSubmissionResultDTO user1Result,
-                                                                        UserSubmissionResultDTO user2Result
+    public SubmissionCompareResponseDTO mapToSubmissionCompareResponseDTO(int contestId,
+                                                                          String index,
+                                                                          UserSubmissionResultDTO user1Result,
+                                                                          UserSubmissionResultDTO user2Result
                                                                         ) {
         return SubmissionCompareResponseDTO.builder()
                 .contestId(contestId)
