@@ -6,6 +6,7 @@ import com.algolens.algo_lens.dtos.user.userRating.UserRatingResponseDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.UserStatusResponseDTO;
 import com.algolens.algo_lens.exception.ExternalApiException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -17,6 +18,7 @@ public class CodeforcesApiClient {
 
     private final WebClient webClient;
 
+    @Cacheable(value="userInfo",key = "#handle")
     public UserInfoResponseDto getUserInfo(String handle){
         try{
             return webClient.get()
@@ -35,6 +37,7 @@ public class CodeforcesApiClient {
 
     }
 
+    @Cacheable(value="userSubmissions",key = "#handle")
     public UserStatusResponseDTO getUserSubmissions(String handle) {
         try {
             return webClient.get()
@@ -55,6 +58,7 @@ public class CodeforcesApiClient {
 
     }
 
+    @Cacheable(value="userRatings",key = "#handle")
     public UserRatingResponseDTO getUserRatings(String handle){
         try{
             return webClient.get()
@@ -73,6 +77,7 @@ public class CodeforcesApiClient {
 
     }
 
+    @Cacheable(value="contests")
     public CodeforcesContestResponseDTO getContests(){
         try{
             return webClient.get()
