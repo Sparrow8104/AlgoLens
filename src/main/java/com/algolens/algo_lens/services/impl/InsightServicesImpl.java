@@ -4,15 +4,13 @@ import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.insight.RecommendationDTO;
 import com.algolens.algo_lens.dtos.insight.UpsolveDTO;
 import com.algolens.algo_lens.dtos.insight.WeakTopicDTO;
+import com.algolens.algo_lens.dtos.user.userStatus.ProblemDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
 import com.algolens.algo_lens.mapper.InsightMapper;
 import com.algolens.algo_lens.services.service.InsightServices;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,11 +55,50 @@ public class InsightServicesImpl implements InsightServices {
 
     @Override
     public List<RecommendationDTO> getRecommendations(String handle) {
-        return List.of();
+        Integer rating=codeforcesApiClient.getUserInfo(handle)
+                .getResult().getFirst().getRating();
+
+        if(rating==null) rating=800;
+        List<WeakTopicDTO> weakTopics=getWeakTopics(handle);
+        if(weakTopics.isEmpty()) return List.of();
+
+        Set<String> solvedProblems=getSolvedProblemKeys(handle);
+
+        int finalUserRating=rating;
+        List<RecommendationDTO> recommendations=new ArrayList<>();
+        for(WeakTopicDTO weakTopic:weakTopics){
+            List<ProblemDTO> problems=codeforcesApiClient.
+                    getProblemsByTag(weakTopic.tag()).getResult().getProblems();
+
+            if(problems==null || problems.isEmpty()) continue;
+
+            problems.stream()
+                    .filter(p-> p.getRating()!=null
+                                    &&p.getRating()>=finalUserRating
+                            &&p.getRating()<=finalUserRating+300
+                            &&!solvedProblems.contains(problemKey(p)))
+                    .limit(3)
+                    .map(insightMapper::mapToRecommendationDTO)
+                    .forEach(recommendations::add);
+        }
+        return recommendations;
     }
 
     @Override
     public List<UpsolveDTO> getUpsolveProblems(String handle, int contestId) {
         return List.of();
+    }
+
+    private String problemKey(ProblemDTO problem) {
+        return problem.getContestId()+"_"+problem.getIndex();
+    }
+
+    private Set<String> getSolvedProblemKeys(String handle){{
+    return codeforcesApiClient.
+    getUserSubmissions(handle).getResult().stream()
+            .filter(s->"OK".equals(s.getVerdict())
+            &&s.getProblem()!=null)
+            .map(s-> problemKey(s.getProblem()))
+            .collect(Collectors.toSet());}
     }
 }

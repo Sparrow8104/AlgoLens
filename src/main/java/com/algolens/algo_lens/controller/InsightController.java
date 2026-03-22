@@ -1,5 +1,6 @@
-package com.algolens.algo_lens.services.impl;
+package com.algolens.algo_lens.controller;
 
+import com.algolens.algo_lens.dtos.insight.RecommendationDTO;
 import com.algolens.algo_lens.dtos.insight.WeakTopicDTO;
 import com.algolens.algo_lens.services.service.InsightServices;
 import org.springframework.http.ResponseEntity;
@@ -23,4 +24,11 @@ public class InsightController {
     public ResponseEntity<List<WeakTopicDTO>> getWeakTopics(@PathVariable String handle) {
         return ResponseEntity.ok().body(insightServices.getWeakTopics(handle));
     }
+
+    @GetMapping("/{handle}/recommendations")
+    public ResponseEntity<List<RecommendationDTO>> getRecommendations(@PathVariable String handle) {
+        return ResponseEntity.ok().body(insightServices.getRecommendations(handle));
+    }
+
+
 }
