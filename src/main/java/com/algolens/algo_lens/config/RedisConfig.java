@@ -41,6 +41,8 @@ public class RedisConfig {
                 defaultConfig.entryTtl(Duration.ofMinutes(5)));
         cacheConfigs.put("userSubmissions",
                 defaultConfig.entryTtl(Duration.ofMinutes(2)));
+        cacheConfigs.put("problemset",
+                defaultConfig.entryTtl(Duration.ofMinutes(30)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

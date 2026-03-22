@@ -1,6 +1,7 @@
 package com.algolens.algo_lens.client;
 
 import com.algolens.algo_lens.dtos.contest.CodeforcesContestResponseDTO;
+import com.algolens.algo_lens.dtos.insight.ProblemsetResponseDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserInfoResponseDto;
 import com.algolens.algo_lens.dtos.user.userRating.UserRatingResponseDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.UserStatusResponseDTO;
@@ -93,6 +94,23 @@ public class CodeforcesApiClient {
                     .block();
         }catch (WebClientResponseException e){
             throw new ExternalApiException("Failed to fetch contests from codeforces API");
+        }
+    }
+
+    @Cacheable(value = "problemset", key = "#tag")
+    public ProblemsetResponseDTO getProblemsByTag(String tag) {
+        try {
+            return webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/problemset.problems")
+                            .queryParam("tags", tag)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(ProblemsetResponseDTO.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            throw new ExternalApiException(
+                    "Failed to fetch problemset from Codeforces API");
         }
     }
 
