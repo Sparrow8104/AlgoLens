@@ -8,6 +8,7 @@ import com.algolens.algo_lens.dtos.user.userStatus.ProblemDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
 import com.algolens.algo_lens.mapper.InsightMapper;
 import com.algolens.algo_lens.services.service.InsightServices;
+import org.springframework.beans.factory.parsing.Problem;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -86,7 +87,37 @@ public class InsightServicesImpl implements InsightServices {
 
     @Override
     public List<UpsolveDTO> getUpsolveProblems(String handle, int contestId) {
-        return List.of();
+        List<SubmissionDTO> submissions=codeforcesApiClient
+                .getUserSubmissions(handle).getResult();
+        Map<String,String> bestVerictProblem=new HashMap<>();
+
+        submissions.stream()
+                .filter(s->s.getProblem()!=null
+                && s.getProblem().getContestId().equals(contestId))
+                .forEach(s->{
+                    String key=problemKey(s.getProblem());
+                    String current=bestVerictProblem.get(key);
+
+                    if(current==null||"OK".equals(s.getVerdict())){
+                        bestVerictProblem.put(key,s.getVerdict());
+                    }
+                });
+        return bestVerictProblem.entrySet().stream()
+                .filter(e->!"OK".equals(e.getValue()))
+                .map(e->{
+                    ProblemDTO problem = submissions.stream()
+                            .filter(s -> s.getProblem() != null
+                                    && problemKey(s.getProblem()).equals(e.getKey()))
+                            .map(SubmissionDTO::getProblem)
+                            .findFirst()
+                            .orElse(null);
+                    return problem != null
+                            ? insightMapper.mapToUpsolveDTO(problem, e.getValue())
+                            : null;
+                })
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(UpsolveDTO::index))
+                .collect(Collectors.toList());
     }
 
     private String problemKey(ProblemDTO problem) {

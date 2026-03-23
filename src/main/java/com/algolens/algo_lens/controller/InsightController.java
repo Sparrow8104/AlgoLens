@@ -1,6 +1,7 @@
 package com.algolens.algo_lens.controller;
 
 import com.algolens.algo_lens.dtos.insight.RecommendationDTO;
+import com.algolens.algo_lens.dtos.insight.UpsolveDTO;
 import com.algolens.algo_lens.dtos.insight.WeakTopicDTO;
 import com.algolens.algo_lens.services.service.InsightServices;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,14 @@ public class InsightController {
     @GetMapping("/{handle}/recommendations")
     public ResponseEntity<List<RecommendationDTO>> getRecommendations(@PathVariable String handle) {
         return ResponseEntity.ok().body(insightServices.getRecommendations(handle));
+    }
+    @GetMapping("/{handle}/upsolve/{contestId}")
+    public ResponseEntity<List<UpsolveDTO>> getUpsolveProblems(
+            @PathVariable String handle,
+            @PathVariable int contestId
+    ) {
+        return ResponseEntity.ok(
+                insightServices.getUpsolveProblems(handle, contestId));
     }
 
 
