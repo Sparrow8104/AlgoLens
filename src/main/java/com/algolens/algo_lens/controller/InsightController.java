@@ -4,6 +4,7 @@ import com.algolens.algo_lens.dtos.insight.RecommendationDTO;
 import com.algolens.algo_lens.dtos.insight.UpsolveDTO;
 import com.algolens.algo_lens.dtos.insight.WeakTopicDTO;
 import com.algolens.algo_lens.services.service.InsightServices;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/insights")
 public class InsightController {
@@ -30,13 +33,11 @@ public class InsightController {
     public ResponseEntity<List<RecommendationDTO>> getRecommendations(@PathVariable String handle) {
         return ResponseEntity.ok().body(insightServices.getRecommendations(handle));
     }
-    @GetMapping("/{handle}/upsolve/{contestId}")
-    public ResponseEntity<List<UpsolveDTO>> getUpsolveProblems(
-            @PathVariable String handle,
-            @PathVariable int contestId
+    @GetMapping("/{handle}/upsolve")
+    public ResponseEntity<Map<Integer, List<UpsolveDTO>>> getUpsolveContests(
+            @PathVariable String handle
     ) {
-        return ResponseEntity.ok(
-                insightServices.getUpsolveProblems(handle, contestId));
+        return ResponseEntity.ok(insightServices.getUpsolveContests(handle));
     }
 
 

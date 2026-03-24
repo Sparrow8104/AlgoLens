@@ -1,6 +1,9 @@
 package com.algolens.algo_lens.services.impl;
 
 import com.algolens.algo_lens.client.CodeforcesApiClient;
+import com.algolens.algo_lens.dtos.ContestDTO;
+import com.algolens.algo_lens.dtos.contest.CodeforcesContestItemDTO;
+import com.algolens.algo_lens.dtos.contest.CodeforcesContestResponseDTO;
 import com.algolens.algo_lens.dtos.insight.RecommendationDTO;
 import com.algolens.algo_lens.dtos.insight.UpsolveDTO;
 import com.algolens.algo_lens.dtos.insight.WeakTopicDTO;
@@ -8,12 +11,13 @@ import com.algolens.algo_lens.dtos.user.userStatus.ProblemDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
 import com.algolens.algo_lens.mapper.InsightMapper;
 import com.algolens.algo_lens.services.service.InsightServices;
-import org.springframework.beans.factory.parsing.Problem;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class InsightServicesImpl implements InsightServices {
 
@@ -86,38 +90,54 @@ public class InsightServicesImpl implements InsightServices {
     }
 
     @Override
-    public List<UpsolveDTO> getUpsolveProblems(String handle, int contestId) {
+    public Map<Integer,List<UpsolveDTO>> getUpsolveContests(String handle) {
         List<SubmissionDTO> submissions=codeforcesApiClient
                 .getUserSubmissions(handle).getResult();
-        Map<String,String> bestVerictProblem=new HashMap<>();
+        log.info("Recieved submissions from codeforces api {}",true);
 
-        submissions.stream()
-                .filter(s->s.getProblem()!=null
-                && s.getProblem().getContestId().equals(contestId))
-                .forEach(s->{
-                    String key=problemKey(s.getProblem());
-                    String current=bestVerictProblem.get(key);
+        Set<String> solvedProblems=getSolvedProblemKeys(handle);
+        Map<Integer,List<SubmissionDTO>> submissionByContest=submissions.stream()
+                .filter(s->s.getProblem().getContestId()!=null)
+                .collect(Collectors.groupingBy(s->s.getProblem().getContestId()));
+        List<Integer> participatedContests=submissionByContest.keySet().stream()
+                .sorted(Comparator.reverseOrder())
+                .toList();
 
-                    if(current==null||"OK".equals(s.getVerdict())){
-                        bestVerictProblem.put(key,s.getVerdict());
-                    }
-                });
-        return bestVerictProblem.entrySet().stream()
-                .filter(e->!"OK".equals(e.getValue()))
-                .map(e->{
-                    ProblemDTO problem = submissions.stream()
-                            .filter(s -> s.getProblem() != null
-                                    && problemKey(s.getProblem()).equals(e.getKey()))
-                            .map(SubmissionDTO::getProblem)
-                            .findFirst()
-                            .orElse(null);
-                    return problem != null
-                            ? insightMapper.mapToUpsolveDTO(problem, e.getValue())
-                            : null;
-                })
-                .filter(Objects::nonNull)
-                .sorted(Comparator.comparing(UpsolveDTO::index))
-                .collect(Collectors.toList());
+        Map<Integer,List<UpsolveDTO>> result=new LinkedHashMap<>();
+
+        for(Integer contestId:participatedContests){
+            if(result.size()==5) break;
+
+            List<SubmissionDTO> contestSubmissions=submissionByContest.get(contestId);
+
+            Map<String,String> bestVerdictPerProblem=new HashMap<>();
+            Map<String,ProblemDTO> problemByKey=new HashMap<>();
+
+
+            for(SubmissionDTO submission:contestSubmissions) {
+                String key = problemKey(submission.getProblem());
+                String current = bestVerdictPerProblem.get(key);
+                if (current == null || "OK".equals(submission.getVerdict())) {
+                    bestVerdictPerProblem.put(key, submission.getVerdict());
+                    problemByKey.put(key, submission.getProblem());
+                }
+            }
+
+            List<UpsolveDTO> unsolved=bestVerdictPerProblem.entrySet().stream()
+                    .filter(e->!"OK".equals(e.getValue()))
+                    .map(e->insightMapper.mapToUpsolveDTO(
+                            problemByKey.get(e.getKey()),
+                            e.getValue()))
+                    .sorted(Comparator.comparing(UpsolveDTO::index))
+                    .toList();
+
+            if(!unsolved.isEmpty()) {
+                result.put(contestId, unsolved);
+            }
+        }
+        return result;
+
+
     }
 
     private String problemKey(ProblemDTO problem) {

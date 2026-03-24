@@ -38,6 +38,10 @@ public class InsightMapper {
     }
 
     public UpsolveDTO mapToUpsolveDTO(ProblemDTO problem, String bestVerdict) {
+        String url = "https://codeforces.com/contest/"
+                + problem.getContestId()
+                + "/problem/"
+                + problem.getIndex();
         return UpsolveDTO.builder()
                 .contestId(problem.getContestId())
                 .index(problem.getIndex())
@@ -45,6 +49,7 @@ public class InsightMapper {
                 .rating(problem.getRating())
                 .tags(problem.getTags())
                 .bestVerdict(bestVerdict)
+                .url(url)
                 .build();
     }
 }
