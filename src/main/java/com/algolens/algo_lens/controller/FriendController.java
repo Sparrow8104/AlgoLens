@@ -1,5 +1,7 @@
 package com.algolens.algo_lens.controller;
 
+import com.algolens.algo_lens.dtos.friend.FriendDTO;
+import com.algolens.algo_lens.dtos.friend.FriendRequestDTO;
 import com.algolens.algo_lens.services.service.FriendServices;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -7,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/friends")
+@RequestMapping("/api/friends")
 public class FriendController {
 
     private final FriendServices friendService;
@@ -18,11 +20,10 @@ public class FriendController {
 
     @PostMapping("/add")
     public ResponseEntity<String> addFriend(
-            @RequestParam String userHandle,
-            @RequestParam String friendHandle
+            @RequestBody FriendRequestDTO request
     ) {
-        friendService.addFriend(userHandle, friendHandle);
-        return ResponseEntity.ok("UserFriend added");
+        friendService.addFriend(request.userHandle(), request.friendHandle());
+        return ResponseEntity.ok("Friend added successfully");
     }
 
     @DeleteMapping("/{userHandle}/remove/{friendHandle}")
@@ -31,13 +32,13 @@ public class FriendController {
             @PathVariable String friendHandle
     ) {
         friendService.removeFriend(userHandle, friendHandle);
-        return ResponseEntity.ok("UserFriend removed");
+        return ResponseEntity.ok("Friend removed successfully");
     }
 
-    @GetMapping("/{userHandle}")
-    public ResponseEntity<List<String>> getFriends(
-            @PathVariable String userHandle
+    @GetMapping("/{handle}")
+    public ResponseEntity<List<FriendDTO>> getFriends(
+            @PathVariable String handle
     ) {
-        return ResponseEntity.ok(friendService.getFriends(userHandle));
+        return ResponseEntity.ok(friendService.getFriends(handle));
     }
 }

@@ -1,6 +1,5 @@
 package com.algolens.algo_lens.repository;
 
-import com.algolens.algo_lens.models.Friend;
 import com.algolens.algo_lens.models.UserFriend;
 import org.apache.catalina.User;
 import org.springframework.data.jpa.repository.JpaRepository;

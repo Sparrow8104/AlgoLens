@@ -2,6 +2,7 @@ package com.algolens.algo_lens.services.impl;
 
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.friend.*;
+import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
 import com.algolens.algo_lens.exception.ExternalApiException;
 import com.algolens.algo_lens.mapper.FriendMapper;
 import com.algolens.algo_lens.models.UserFriend;
@@ -10,7 +11,9 @@ import com.algolens.algo_lens.services.service.FriendServices;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class FriendServicecImpl implements FriendServices {
@@ -41,13 +44,27 @@ public class FriendServicecImpl implements FriendServices {
     }
 
     @Override
+    @Transactional
     public void removeFriend(String userHandle, String friendHandle) {
-
+      if(!userFriendRepository.existsByUserHandleAndFriendHandle(userHandle, friendHandle)) {
+          throw new ExternalApiException("Friend not found");
+      }
+      userFriendRepository.deleteByUserHandleAndFriendHandle(userHandle, friendHandle);
     }
 
     @Override
     public List<FriendDTO> getFriends(String handle) {
-        return List.of();
+        List<String> friendHandles = getFriendHandles(handle);
+        if(friendHandles.isEmpty()) { return List.of(); }
+        return friendHandles.stream()
+                .map(friendHandle-> {
+                    CodeforcesUserDTO user = codeforcesApiClient.
+                            getUserInfo(friendHandle).getResult().getFirst();
+                    int contests = codeforcesApiClient
+                            .getUserRatings(friendHandle).getResult().size();
+                    return friendMapper.mapToFriendDTO(user, contests);
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -68,5 +85,12 @@ public class FriendServicecImpl implements FriendServices {
     @Override
     public List<StreakCompareDTO> getStreakComparison(String handle) {
         return List.of();
+    }
+
+    private List<String> getFriendHandles(String handle) {
+        return userFriendRepository.findByUserHandle(handle)
+                .stream()
+                .map(UserFriend::getFriendHandle)
+                .collect(Collectors.toList());
     }
 }
