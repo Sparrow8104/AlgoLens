@@ -1,6 +1,6 @@
 package com.algolens.algo_lens.controller;
 
-import com.algolens.algo_lens.services.service.FriendService;
+import com.algolens.algo_lens.services.service.FriendServices;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,9 +10,9 @@ import java.util.List;
 @RequestMapping("/friends")
 public class FriendController {
 
-    private final FriendService friendService;
+    private final FriendServices friendService;
 
-    public FriendController(FriendService friendService) {
+    public FriendController(FriendServices friendService) {
         this.friendService = friendService;
     }
 
@@ -22,7 +22,7 @@ public class FriendController {
             @RequestParam String friendHandle
     ) {
         friendService.addFriend(userHandle, friendHandle);
-        return ResponseEntity.ok("Friend added");
+        return ResponseEntity.ok("UserFriend added");
     }
 
     @DeleteMapping("/{userHandle}/remove/{friendHandle}")
@@ -31,7 +31,7 @@ public class FriendController {
             @PathVariable String friendHandle
     ) {
         friendService.removeFriend(userHandle, friendHandle);
-        return ResponseEntity.ok("Friend removed");
+        return ResponseEntity.ok("UserFriend removed");
     }
 
     @GetMapping("/{userHandle}")
