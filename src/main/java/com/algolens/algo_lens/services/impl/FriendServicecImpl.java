@@ -3,6 +3,7 @@ package com.algolens.algo_lens.services.impl;
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.friend.*;
 import com.algolens.algo_lens.dtos.user.userInfo.CodeforcesUserDTO;
+import com.algolens.algo_lens.dtos.user.userRating.RatingChangeDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.ProblemDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
 import com.algolens.algo_lens.exception.ExternalApiException;
@@ -139,7 +140,23 @@ public class FriendServicecImpl implements FriendServices {
 
     @Override
     public List<ContestOverlapDTO> getContestOverlap(String handle, int contestId) {
-        return List.of();
+        List<String> allHandles = getFriendHandles(handle);
+        allHandles.add(handle);
+
+        return allHandles.stream()
+                .map(h->{
+                    List<RatingChangeDTO> ratings=codeforcesApiClient
+                            .getUserRatings(h).getResult();
+                    return ratings.stream()
+                            .filter(r->r.getContestId()!=null
+                            &&r.getContestId().equals(contestId))
+                            .findFirst()
+                            .map(friendMapper::mapToContestOverlapDTO)
+                            .orElse(null);
+                })
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparingInt(ContestOverlapDTO::rank))
+                .collect(Collectors.toList());
     }
 
     @Override

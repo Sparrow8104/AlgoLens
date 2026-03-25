@@ -2,6 +2,7 @@ package com.algolens.algo_lens.controller;
 
 import com.algolens.algo_lens.dtos.friend.*;
 import com.algolens.algo_lens.services.service.FriendServices;
+import lombok.Getter;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,5 +59,10 @@ public class FriendController {
     @GetMapping("/{handle}/streak-compare")
     public ResponseEntity<List<StreakCompareDTO>> getStreakCompare(@PathVariable String handle){
         return ResponseEntity.ok(friendServices.getStreakComparison(handle));
+    }
+
+    @GetMapping("/{handle}/contest-overlap/{contestId}")
+    public ResponseEntity<List<ContestOverlapDTO>> getContestOverlap(@PathVariable String handle, @PathVariable int contestId){
+        return ResponseEntity.ok(friendServices.getContestOverlap(handle, contestId));
     }
 }
