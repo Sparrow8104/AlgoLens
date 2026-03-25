@@ -4,6 +4,7 @@ import com.algolens.algo_lens.dtos.contest.CodeforcesContestItemDTO;
 import com.algolens.algo_lens.dtos.contest.CodeforcesContestResponseDTO;
 import com.algolens.algo_lens.dtos.contest.UpcomingContestDTO;
 import com.algolens.algo_lens.services.service.ContestServices;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,12 +28,14 @@ public class ContestController {
     }
 
     @GetMapping("/upcoming")
+    @Operation(summary = "Get Codeforces upcoming contests")
     public ResponseEntity<List<UpcomingContestDTO>> upcomingContests() {
         List<UpcomingContestDTO> upcoming=contestServices.getUpcomingContests();
         return ResponseEntity.ok().body(upcoming);
     }
 
     @GetMapping
+    @Operation(summary = "Get Codeforces all contests")
     public ResponseEntity<Page<UpcomingContestDTO>>  getAllContests(
             @RequestParam(defaultValue = "0") int page
             , @RequestParam(defaultValue = "20") int size) {
