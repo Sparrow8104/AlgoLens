@@ -13,6 +13,9 @@ import com.algolens.algo_lens.services.service.FriendServices;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -141,7 +144,50 @@ public class FriendServicecImpl implements FriendServices {
 
     @Override
     public List<StreakCompareDTO> getStreakComparison(String handle) {
-        return List.of();
+        List<String> allHandles = new ArrayList<>(getFriendHandles(handle));
+        allHandles.add(handle);
+
+        return allHandles.stream()
+                .map(h->{
+                    List<SubmissionDTO> submissions=codeforcesApiClient.getUserSubmissions(h).getResult();
+                    int streak=calculateStreak(submissions);
+                    Long lastSubmissionsTime=submissions.isEmpty()
+                            ?null
+                            :submissions.getFirst().getCreationTimeSeconds();
+                    return friendMapper.mapToStreakCompareDTO(
+                            h,streak,lastSubmissionsTime
+                    );
+                })
+                .sorted(Comparator.comparingInt(
+                        s-> -s.currentStreak()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private int calculateStreak(List<SubmissionDTO> submissions) {
+        Set<LocalDate> activeDays=submissions.stream()
+                .filter(s->"OK".equals(s.getVerdict()))
+                .map(s-> Instant.ofEpochSecond(s.getCreationTimeSeconds())
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate())
+                .collect(Collectors.toSet());
+        if(activeDays.isEmpty()) return 0;
+        LocalDate today=LocalDate.now();
+        int streak=0;
+        LocalDate current=today;
+        while(activeDays.contains(current)) {
+            streak++;
+            current=current.minusDays(1);
+        }
+
+        if(streak==0){
+            current=today.minusDays(1);
+            while(activeDays.contains(current)) {
+                streak++;
+                current = current.minusDays(1);
+            }
+        }
+        return streak;
     }
 
     private List<String> getFriendHandles(String handle) {
