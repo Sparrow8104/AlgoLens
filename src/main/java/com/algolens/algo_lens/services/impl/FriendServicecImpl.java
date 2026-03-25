@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -69,7 +70,22 @@ public class FriendServicecImpl implements FriendServices {
 
     @Override
     public List<LeaderboardEntryDTO> getLeaderboard(String handle) {
-        return List.of();
+        List<String> allHandles = new ArrayList<>(getFriendHandles(handle));
+        allHandles.add(handle);
+
+        List<CodeforcesUserDTO> users=allHandles.stream()
+                .map(h->codeforcesApiClient
+                        .getUserInfo(h).getResult().getFirst())
+                .sorted(Comparator.comparing(u->
+                        u.getRating()==null?0:-u.getRating()))
+                .toList();
+        List<LeaderboardEntryDTO> leaderboard = new ArrayList<>();
+        for(int i=0;i<users.size();i++) {
+            leaderboard.add(friendMapper.mapToLeaderboardEntryDTO(
+                    i+1,users.get(i)
+            ));
+        }
+        return leaderboard;
     }
 
     @Override
