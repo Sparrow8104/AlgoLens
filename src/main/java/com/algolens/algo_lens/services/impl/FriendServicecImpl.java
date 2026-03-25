@@ -2,12 +2,13 @@ package com.algolens.algo_lens.services.impl;
 
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.dtos.friend.*;
+import com.algolens.algo_lens.exception.ExternalApiException;
 import com.algolens.algo_lens.mapper.FriendMapper;
-import com.algolens.algo_lens.models.Friend;
-import com.algolens.algo_lens.repository.FriendRepository;
+import com.algolens.algo_lens.models.UserFriend;
 import com.algolens.algo_lens.repository.UserFriendRepository;
 import com.algolens.algo_lens.services.service.FriendServices;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -25,8 +26,18 @@ public class FriendServicecImpl implements FriendServices {
     }
 
     @Override
+    @Transactional
     public void addFriend(String userHandle, String friendHandle) {
+     if(userHandle.equalsIgnoreCase(friendHandle)) {
+         throw new ExternalApiException("Cannot add yourself as a friend");
+     }
 
+     if(userFriendRepository.existsByUserHandleAndFriendHandle(
+             userHandle, friendHandle)) {
+         throw new ExternalApiException("Friend already added");
+     }
+
+     userFriendRepository.save(new UserFriend(userHandle, friendHandle));
     }
 
     @Override
