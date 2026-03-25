@@ -3,6 +3,7 @@ package com.algolens.algo_lens.controller;
 import com.algolens.algo_lens.dtos.friend.FriendDTO;
 import com.algolens.algo_lens.dtos.friend.FriendRequestDTO;
 import com.algolens.algo_lens.dtos.friend.LeaderboardEntryDTO;
+import com.algolens.algo_lens.dtos.friend.UnsolvedByMeDTO;
 import com.algolens.algo_lens.services.service.FriendServices;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -48,5 +49,12 @@ public class FriendController {
             @PathVariable String handle
     ){
         return ResponseEntity.ok(friendServices.getLeaderboard(handle));
+    }
+
+    @GetMapping("/{handle}/unsolved-by-me")
+    public ResponseEntity<List<UnsolvedByMeDTO>> getUnsolvedByMe(
+            @PathVariable String handle
+    ){
+        return ResponseEntity.ok(friendServices.getUnsolvedByMe(handle));
     }
 }
