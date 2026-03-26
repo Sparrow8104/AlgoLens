@@ -41,6 +41,10 @@ public class RedisConfig {
                 defaultConfig.entryTtl(Duration.ofMinutes(2)));
         cacheConfigs.put("problemset",
                 defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        cacheConfigs.put("contestStatus",
+                defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        cacheConfigs.put("submissionCode",
+                defaultConfig.entryTtl(Duration.ofHours(24)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
