@@ -31,7 +31,8 @@ build/
 
 ## security ##
 application-secret.yml
-.env
+application-local.yml
+.env.local
 
 ### VS Code ###
 .vscode/
