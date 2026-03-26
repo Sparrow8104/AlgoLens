@@ -1,0 +1,42 @@
+services:
+  api:
+    build: .
+    container_name: algolens-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - .env
+
+  mysql:
+    image: mysql:8
+    container_name: algolens-db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+
+  redis:
+    image: redis:7
+    container_name: algolens-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql-data:

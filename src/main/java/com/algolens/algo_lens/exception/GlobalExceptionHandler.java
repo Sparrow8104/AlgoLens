@@ -29,4 +29,25 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Something went wrong"+e.getMessage());
     }
+
+    @ExceptionHandler(CfAuthException.class)
+    public ResponseEntity<String> handleCfAuthException(CfAuthException e) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(e.getMessage());
+    }
+
+    @ExceptionHandler(CodeFetchException.class)
+    public ResponseEntity<String> handleCodeFetchException(CodeFetchException e) {
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(e.getMessage());
+    }
+
+    @ExceptionHandler(NoCommonContestsException.class)
+    public ResponseEntity<String> handleNoCommonContestsException(NoCommonContestsException e) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(e.getMessage());
+    }
 }
