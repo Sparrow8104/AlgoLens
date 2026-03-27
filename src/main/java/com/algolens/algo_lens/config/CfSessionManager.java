@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class CfSessionManager {
@@ -23,12 +24,32 @@ public class CfSessionManager {
     private String sessionCookie;
     private LocalDateTime lastLogin;
 
+    private final Map<Long,String> codeCache=new ConcurrentHashMap<>();
+
     public String getSession() {
         if (sessionCookie == null || lastLogin == null
                 || lastLogin.isBefore(LocalDateTime.now().minusHours(6))) {
             login();
         }
         return sessionCookie;
+    }
+
+    public void invalidateSession() {
+        sessionCookie = null;
+        lastLogin = null;
+    }
+
+    public boolean hasCodeCached(Long submissionId){
+        return codeCache.containsKey(submissionId);
+    }
+
+
+    public String getCachedCode(Long submissionId) {
+        return codeCache.get(submissionId);
+    }
+
+    public void cacheCode(Long submissionId, String code) {
+        codeCache.put(submissionId, code);
     }
 
     private void login(){

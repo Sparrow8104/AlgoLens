@@ -2,20 +2,23 @@ package com.algolens.algo_lens.services.impl;
 
 import com.algolens.algo_lens.client.CodeforcesApiClient;
 import com.algolens.algo_lens.config.CfSessionManager;
-import com.algolens.algo_lens.dtos.code.CodeCompareRequestDTO;
-import com.algolens.algo_lens.dtos.code.CodeCompareResponseDTO;
-import com.algolens.algo_lens.dtos.code.CommonContestDTO;
+import com.algolens.algo_lens.dtos.code.*;
+import com.algolens.algo_lens.dtos.code.raw.ContestSubmissionDTO;
 import com.algolens.algo_lens.dtos.contest.CodeforcesContestItemDTO;
+import com.algolens.algo_lens.dtos.user.userStatus.ProblemDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
+import com.algolens.algo_lens.exception.CodeFetchException;
 import com.algolens.algo_lens.exception.NoCommonContestsException;
 import com.algolens.algo_lens.mapper.CodeMapper;
 import com.algolens.algo_lens.services.service.CodeServices;
+import com.github.difflib.DiffUtils;
+import com.github.difflib.patch.Patch;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.io.IOException;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -83,6 +86,138 @@ public class CodeServicesImpl implements CodeServices {
 
     @Override
     public CodeCompareResponseDTO compareCode(CodeCompareRequestDTO request) {
-        return null;
+        List<ContestSubmissionDTO> allSubmissions=codeforcesApiClient.
+                getContestStatus(request.contestId()).getResult();
+
+        Map<String,ContestSubmissionDTO> best1=
+                getBestSubmissionsPerProblem(allSubmissions, request.handle1());
+        Map<String,ContestSubmissionDTO> best2=
+                getBestSubmissionsPerProblem(allSubmissions, request.handle2());
+
+        Set<String> commonIndexes=new HashSet<>(best1.keySet());
+        commonIndexes.retainAll(best2.keySet());
+
+        if(commonIndexes.isEmpty()){
+            throw new NoCommonContestsException(
+                    "No common problems found between"+request.handle1()+"and"
+                            +request.handle2()+"in contest"+request.contestId()
+            );
+        }
+
+        String contestName=codeforcesApiClient
+                .getContests().getResult().stream()
+                .filter(c->c.getId()==request.contestId())
+                .map(CodeforcesContestItemDTO::getName)
+                .findFirst()
+                .orElse("Contest"+request.contestId());
+
+        List<ProblemCompareDTO> problems=commonIndexes.stream()
+                .sorted()
+                .map(index->{
+                    ContestSubmissionDTO sub1=best1.get(index);
+                    ContestSubmissionDTO sub2=best2.get(index);
+
+                    String code1=fetchCode(sub1.getId(), request.contestId());
+                    String code2=fetchCode(sub2.getId(),request.contestId());
+
+                    List<DiffDeltaDTO> diff1=computeDiff(code1, code2);
+                    List<DiffDeltaDTO> diff2=computeDiff(code2, code1);
+
+                    return ProblemCompareDTO.builder()
+                            .index(index)
+                            .submission1(codeMapper.mapToSubmissionCodeDTO(
+                                    sub1, code1, diff1))
+                            .submission2(codeMapper.mapToSubmissionCodeDTO(
+                                    sub2, code2, diff2))
+                            .build();
+                })
+                .toList();
+
+        return CodeCompareResponseDTO.builder()
+                .contestId(request.contestId())
+                .contestName(contestName)
+                .problems(problems)
+                .build();
+
+
+
+    }
+
+    private String fetchCode(Long submissionId,int contestId){
+        if (cfSessionManager.hasCodeCached(submissionId)) {
+            return cfSessionManager.getCachedCode(submissionId);
+        }
+
+        try{
+            Thread.sleep(750);
+        }catch(InterruptedException e){
+            Thread.currentThread().interrupt();
+        }
+
+        String code=scrape(submissionId,contestId,false);
+        cfSessionManager.cacheCode(submissionId,code);
+        return code;
+    }
+
+    private String scrape(Long submissionId,int contestId,boolean isRetry){
+        try{
+            String url="https://codeforces.com/contest/"+contestId+"/submission/"+submissionId;
+
+            Document doc= Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (compatible; AlgoLens/1.0)")
+                    .cookie("JSESSIONID", cfSessionManager.getSession())
+                    .timeout(10000)
+                    .get();
+
+            if(!doc.select("form[action='/enter']").isEmpty()) {
+                if (isRetry) {
+                    throw new CodeFetchException(
+                            "Codeforces session expired- re-login failed"
+                    );
+                }
+                cfSessionManager.invalidateSession();
+                return scrape(submissionId, contestId, true);
+            }
+                String code=doc.select("pre#program-source-text").text();
+
+                if(code==null||code.isEmpty()){
+                    code=doc.select("pre.prettyprint").text();
+                }
+                if(code==null||code.isEmpty()){
+                    return "Could not fetch code for submission"+submissionId;
+                }
+
+                return code;
+        }catch(IOException e){
+          throw new CodeFetchException(
+                  "Failed to scrape submission"+submissionId+": "+e.getMessage());
+        }
+    }
+
+    private Map<String,ContestSubmissionDTO> getBestSubmissionsPerProblem(
+            List<ContestSubmissionDTO> submissions,String handle
+    ){
+        Map<String,ContestSubmissionDTO> best=new LinkedHashMap<>();
+
+        submissions.stream()
+                .filter(s->handle.equalsIgnoreCase(s.getHandle())
+                &&s.getProblem()!=null
+                        &&s.getProblem().getIndex()!=null)
+                .forEach(s->{
+                    String index=s.getProblem().getIndex();
+                    ContestSubmissionDTO current=best.get(index);
+                    if(current==null|| !"OK".equalsIgnoreCase(current.getVerdict())
+                    &&"OK".equalsIgnoreCase(s.getVerdict())){
+                        best.put(index,s);
+                    }
+                });
+        return best;
+    }
+
+    private List<DiffDeltaDTO> computeDiff(String code1, String code2) {
+        List<String> lines1 = Arrays.asList(code1.split("\n"));
+        List<String> lines2 = Arrays.asList(code2.split("\n"));
+        Patch<String> patch = DiffUtils.diff(lines1, lines2);
+        return codeMapper.mapToDiffDeltas(patch);
     }
 }

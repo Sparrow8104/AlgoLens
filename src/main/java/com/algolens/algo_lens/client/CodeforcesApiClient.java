@@ -7,6 +7,7 @@ import com.algolens.algo_lens.dtos.user.userInfo.UserInfoResponseDto;
 import com.algolens.algo_lens.dtos.user.userRating.UserRatingResponseDTO;
 import com.algolens.algo_lens.dtos.user.userStatus.UserStatusResponseDTO;
 import com.algolens.algo_lens.exception.ExternalApiException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
@@ -118,18 +119,27 @@ public class CodeforcesApiClient {
     @Cacheable(value = "contestStatus", key = "#contestId")
     public ContestStatusResponseDTO getContestStatus(int contestId) {
         try {
-            return webClient.get()
+            String body=webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/contest.status")
                             .queryParam("contestId", contestId)
-                            .queryParam("count", 10000)
+                            .queryParam("count", 1000)
                             .build())
                     .retrieve()
-                    .bodyToMono(ContestStatusResponseDTO.class)
+                    .bodyToMono(String.class)
                     .block();
+            ObjectMapper objectMapper = new ObjectMapper();
+            return  objectMapper.readValue(body, ContestStatusResponseDTO.class);
         } catch (WebClientResponseException e) {
             throw new ExternalApiException(
-                    "Failed to fetch contest status from Codeforces API");
+                    "Failed to fetch contest status | status: "
+                            + e.getStatusCode()
+                            + " | body: " + e.getResponseBodyAsString());
+        }catch (Exception e) {
+            throw new ExternalApiException(
+                    "Failed to fetch contest status | cause: "
+                            + e.getClass().getSimpleName()
+                            + " | message: " + e.getMessage());
         }
     }
 

@@ -1,13 +1,12 @@
 package com.algolens.algo_lens.controller;
 
 
+import com.algolens.algo_lens.dtos.code.CodeCompareRequestDTO;
+import com.algolens.algo_lens.dtos.code.CodeCompareResponseDTO;
 import com.algolens.algo_lens.dtos.code.CommonContestDTO;
 import com.algolens.algo_lens.services.service.CodeServices;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -28,4 +27,12 @@ public class CodeController {
     ) {
         return ResponseEntity.ok(codeServices.getCommonContests(handle1, handle2));
     }
+
+    @PostMapping("/compare")
+    public ResponseEntity<CodeCompareResponseDTO> compareCode(
+            @RequestBody CodeCompareRequestDTO request
+    ) {
+        return ResponseEntity.ok(codeServices.compareCode(request));
+    }
+
 }
