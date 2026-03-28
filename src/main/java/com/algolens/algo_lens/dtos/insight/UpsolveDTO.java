@@ -1,10 +1,12 @@
 package com.algolens.algo_lens.dtos.insight;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Builder;
 
 import java.util.List;
 
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record UpsolveDTO<url>(
         Integer contestId,
         String index,

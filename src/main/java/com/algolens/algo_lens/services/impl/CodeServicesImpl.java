@@ -61,8 +61,8 @@ public class CodeServicesImpl implements CodeServices {
 
         if(contestIds1.isEmpty()){
             throw new NoCommonContestsException(
-                    "No common contests found between"+handle1+" and "+handle2+
-                            "in their last 300 submissions"
+                    "No common contests found between "+handle1+" and "+handle2+
+                            " in their last 300 submissions"
             );
         }
 
@@ -99,8 +99,8 @@ public class CodeServicesImpl implements CodeServices {
 
         if(commonIndexes.isEmpty()){
             throw new NoCommonContestsException(
-                    "No common problems found between"+request.handle1()+"and"
-                            +request.handle2()+"in contest"+request.contestId()
+                    "No common problems found between "+request.handle1()+" and "
+                            +request.handle2()+" in contest "+request.contestId()
             );
         }
 

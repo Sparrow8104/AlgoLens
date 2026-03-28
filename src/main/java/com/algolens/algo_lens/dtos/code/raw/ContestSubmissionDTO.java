@@ -1,6 +1,7 @@
 package com.algolens.algo_lens.dtos.code.raw;
 
 import com.algolens.algo_lens.dtos.user.userStatus.ProblemDTO;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ContestSubmissionDTO implements Serializable {
     private Long id;
     private Integer contestId;
