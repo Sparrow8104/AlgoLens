@@ -13,7 +13,7 @@ public class webClientConfig {
     public WebClient webClient() {
         ExchangeStrategies strategies=ExchangeStrategies.builder()
                 .codecs(configurer->
-                        configurer.defaultCodecs().maxInMemorySize(5*1024*1024))
+                        configurer.defaultCodecs().maxInMemorySize(20*1024*1024))
                 .build();
 
 
