@@ -21,21 +21,22 @@ public class CfSessionManager {
     @Value("${codeforces.password}")
     private String password;
 
-    private String sessionCookie;
+    private final Map<String,String> cookies = new ConcurrentHashMap<>();
     private LocalDateTime lastLogin;
 
     private final Map<Long,String> codeCache=new ConcurrentHashMap<>();
 
-    public String getSession() {
-        if (sessionCookie == null || lastLogin == null
+    public Map<String,String> getCookies(){
+        if (cookies.isEmpty()||lastLogin==null
                 || lastLogin.isBefore(LocalDateTime.now().minusHours(6))) {
             login();
         }
-        return sessionCookie;
+        return cookies;
     }
 
+
     public void invalidateSession() {
-        sessionCookie = null;
+        cookies.clear();
         lastLogin = null;
     }
 
@@ -60,10 +61,10 @@ public class CfSessionManager {
                     .method(Connection.Method.GET)
                     .execute();
 
+            Map<String,String> initialCookies = loginPage.cookies();
             String csrf=loginPage.parse()
                     .select("input[name=csrf_token]")
                     .attr("value");
-
             if(csrf==null||csrf.isEmpty()){
                 throw new CfAuthException(
                         "Failed to extract CSRF token from Codeforces login page"
@@ -88,15 +89,18 @@ public class CfSessionManager {
                 );
             }
 
-            Map<String,String> cookies = loginResponse.cookies();
+            cookies.clear();
+            cookies.putAll(initialCookies);
+            cookies.putAll(loginResponse.cookies());
             if(!cookies.containsKey("JSESSIONID")){
                 throw new CfAuthException(
                         "Codeforces login succeeded but no session cookie received"
                 );
             }
 
-            sessionCookie = cookies.get("JSESSIONID");
             lastLogin = LocalDateTime.now();
+
+            System.out.println("Codeforces login succeeded for "+lastLogin);
 
         }catch (IOException e){
           throw new CfAuthException(

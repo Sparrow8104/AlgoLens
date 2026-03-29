@@ -86,13 +86,15 @@ public class CodeServicesImpl implements CodeServices {
 
     @Override
     public CodeCompareResponseDTO compareCode(CodeCompareRequestDTO request) {
-        List<ContestSubmissionDTO> allSubmissions=codeforcesApiClient.
-                getContestStatus(request.contestId()).getResult();
 
-        Map<String,ContestSubmissionDTO> best1=
-                getBestSubmissionsPerProblem(allSubmissions, request.handle1());
-        Map<String,ContestSubmissionDTO> best2=
-                getBestSubmissionsPerProblem(allSubmissions, request.handle2());
+        List<SubmissionDTO> subs1 = codeforcesApiClient.getUserSubmissions(request.handle1()).getResult();
+        List<SubmissionDTO> subs2 = codeforcesApiClient.getUserSubmissions(request.handle2()).getResult();
+
+        Map<String,SubmissionDTO> best1= getBestSubmissionsPerProblem(subs1, request.contestId());
+        Map<String,SubmissionDTO> best2= getBestSubmissionsPerProblem(subs2, request.contestId());
+
+        System.out.println("User1 problems: " + best1.keySet());
+        System.out.println("User2 problems: " + best2.keySet());
 
         Set<String> commonIndexes=new HashSet<>(best1.keySet());
         commonIndexes.retainAll(best2.keySet());
@@ -114,8 +116,8 @@ public class CodeServicesImpl implements CodeServices {
         List<ProblemCompareDTO> problems=commonIndexes.stream()
                 .sorted()
                 .map(index->{
-                    ContestSubmissionDTO sub1=best1.get(index);
-                    ContestSubmissionDTO sub2=best2.get(index);
+                   SubmissionDTO sub1=best1.get(index);
+                   SubmissionDTO sub2=best2.get(index);
 
                     String code1=fetchCode(sub1.getId(), request.contestId());
                     String code2=fetchCode(sub2.getId(),request.contestId());
@@ -139,8 +141,6 @@ public class CodeServicesImpl implements CodeServices {
                 .problems(problems)
                 .build();
 
-
-
     }
 
     private String fetchCode(Long submissionId,int contestId){
@@ -163,10 +163,11 @@ public class CodeServicesImpl implements CodeServices {
         try{
             String url="https://codeforces.com/contest/"+contestId+"/submission/"+submissionId;
 
+            System.out.println("Fetching URL: "+url);
             Document doc= Jsoup.connect(url)
                     .userAgent("Mozilla/5.0 (compatible; AlgoLens/1.0)")
-                    .cookie("JSESSIONID", cfSessionManager.getSession())
-                    .timeout(10000)
+                    .cookies( cfSessionManager.getCookies())
+                    .timeout(15000)
                     .get();
 
             if(!doc.select("form[action='/enter']").isEmpty()) {
@@ -175,6 +176,7 @@ public class CodeServicesImpl implements CodeServices {
                             "Codeforces session expired- re-login failed"
                     );
                 }
+                System.out.println("Session expired! re-logging");
                 cfSessionManager.invalidateSession();
                 return scrape(submissionId, contestId, true);
             }
@@ -194,18 +196,19 @@ public class CodeServicesImpl implements CodeServices {
         }
     }
 
-    private Map<String,ContestSubmissionDTO> getBestSubmissionsPerProblem(
-            List<ContestSubmissionDTO> submissions,String handle
+    private Map<String,SubmissionDTO> getBestSubmissionsPerProblem(
+            List<SubmissionDTO> submissions,int contestId
     ){
-        Map<String,ContestSubmissionDTO> best=new LinkedHashMap<>();
+        Map<String,SubmissionDTO> best=new LinkedHashMap<>();
 
         submissions.stream()
-                .filter(s->handle.equalsIgnoreCase(s.getHandle())
-                &&s.getProblem()!=null
-                        &&s.getProblem().getIndex()!=null)
+                .filter(s->s.getProblem()!=null&&
+                        s.getProblem().getContestId()==contestId&&
+                        s.getProblem().getIndex()!=null
+                )
                 .forEach(s->{
                     String index=s.getProblem().getIndex();
-                    ContestSubmissionDTO current=best.get(index);
+                    SubmissionDTO current=best.get(index);
                     if(current==null|| !"OK".equalsIgnoreCase(current.getVerdict())
                     &&"OK".equalsIgnoreCase(s.getVerdict())){
                         best.put(index,s);

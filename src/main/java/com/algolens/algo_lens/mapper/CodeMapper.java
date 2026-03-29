@@ -5,6 +5,7 @@ import com.algolens.algo_lens.dtos.code.CommonContestDTO;
 import com.algolens.algo_lens.dtos.code.DiffDeltaDTO;
 import com.algolens.algo_lens.dtos.code.SubmissionCodeDTO;
 import com.algolens.algo_lens.dtos.code.raw.ContestSubmissionDTO;
+import com.algolens.algo_lens.dtos.user.userStatus.SubmissionDTO;
 import com.github.difflib.patch.Patch;
 import org.springframework.stereotype.Component;
 
@@ -23,12 +24,12 @@ public class CodeMapper {
     }
 
     public SubmissionCodeDTO mapToSubmissionCodeDTO(
-            ContestSubmissionDTO submission,
+            SubmissionDTO submission,
             String code,
             List<DiffDeltaDTO> diff
     ) {
+
         return SubmissionCodeDTO.builder()
-                .handle(submission.getHandle())
                 .problemIndex(submission.getProblem() != null
                         ? submission.getProblem().getIndex() : null)
                 .language(submission.getProgrammingLanguage())
