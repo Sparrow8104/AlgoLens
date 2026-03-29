@@ -1,7 +1,5 @@
 package com.algolens.algo_lens.client;
 
-import com.algolens.algo_lens.dtos.code.raw.ContestStatusResponseDTO;
-import com.algolens.algo_lens.dtos.code.raw.ContestSubmissionDTO;
 import com.algolens.algo_lens.dtos.contest.CodeforcesContestResponseDTO;
 import com.algolens.algo_lens.dtos.insight.ProblemsetResponseDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserInfoResponseDto;
@@ -120,58 +118,7 @@ public class CodeforcesApiClient {
         }
     }
 
-    @Cacheable(value = "contestStatus", key = "#contestId")
-    public ContestStatusResponseDTO getContestStatus(int contestId) {
-        List<ContestSubmissionDTO> allSubmissions=new ArrayList<>();
-        int from=1;
-        int pageSize=1000;
-        int maxSubmissions=10000;
-        while(allSubmissions.size()<maxSubmissions){
-            int finalFrom=from;
-            try {
-                String body=webClient.get()
-                        .uri(uriBuilder -> uriBuilder
-                                .path("/contest.status")
-                                .queryParam("contestId", contestId)
-                                .queryParam("from", finalFrom)
-                                .queryParam("count", pageSize)
-                                .build())
-                        .retrieve()
-                        .bodyToMono(String.class)
-                        .block();
-                ObjectMapper objectMapper = new ObjectMapper();
-                ContestStatusResponseDTO page= objectMapper.readValue(body, ContestStatusResponseDTO.class);
 
-                if(page==null||page.getResult()==null||page.getResult().isEmpty()){
-                    break;
-                }
-
-                allSubmissions.addAll(page.getResult());
-
-                if(page.getResult().size()<pageSize){
-                    break;
-                }
-                from+=pageSize;
-            } catch (WebClientResponseException e) {
-                throw new ExternalApiException(
-                        "Failed to fetch contest status | status: "
-                                + e.getStatusCode()
-                                + " | body: " + e.getResponseBodyAsString());
-            }catch (Exception e) {
-                throw new ExternalApiException(
-                        "Failed to fetch contest status | cause: "
-                                + e.getClass().getSimpleName()
-                                + " | message: " + e.getMessage());
-            }
-
-        }
-        ContestStatusResponseDTO result=new ContestStatusResponseDTO();
-        result.setStatus("OK");
-        result.setResult(allSubmissions);
-        return result;
-
-
-    }
 
 
 

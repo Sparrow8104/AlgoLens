@@ -30,9 +30,6 @@ spring:
     redis:
       time-to-live: 300000
 
-codeforces:
-  handle: ${CF_HANDLE}
-  password: ${CF_PASSWORD}
 
 logging:
   level:
