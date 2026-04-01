@@ -8,10 +8,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
 @Component
-@ConfigurationProperties(prefix = "gemini.api")
+@ConfigurationProperties(prefix = "groq.api")
 @Getter
 @Setter
-public class GeminiProperties {
+public class GroqProperties {
     private String key;
     private String url;
 }

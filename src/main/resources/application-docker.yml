@@ -30,10 +30,10 @@ spring:
     redis:
       time-to-live: 300000
 
-gemini:
+groq:
   api:
-    key: ${GEMINI_API_KEY}
-    url: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+    key: ${GROQ_API_KEY}
+    url: ${GROQ_API_URL}
 
 logging:
   level:

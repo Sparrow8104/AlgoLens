@@ -7,7 +7,7 @@ import java.util.List;
 
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record UpsolveDTO<url>(
+public record UpsolveDTO(
         Integer contestId,
         String index,
         String name,

@@ -45,6 +45,10 @@ public class RedisConfig {
                 defaultConfig.entryTtl(Duration.ofMinutes(10)));
         cacheConfigs.put("submissionCode",
                 defaultConfig.entryTtl(Duration.ofHours(24)));
+        cacheConfigs.put("codeAnalysis",
+                defaultConfig.entryTtl(Duration.ofHours(24)));
+        cacheConfigs.put("aiUpsolve",
+                defaultConfig.entryTtl(Duration.ofHours(6)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
