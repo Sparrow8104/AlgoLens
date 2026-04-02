@@ -6,6 +6,7 @@ import com.algolens.algo_lens.dtos.insight.UpsolveDTO;
 import com.algolens.algo_lens.dtos.insight.WeakTopicDTO;
 import com.algolens.algo_lens.services.service.AnalysisService;
 import com.algolens.algo_lens.services.service.InsightServices;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -20,21 +21,32 @@ public class AnalysisServiceImpl implements AnalysisService {
 
     private final InsightServices insightServices;
     private final GroqClient groqClient;
+    private final ObjectMapper objectMapper;
 
-    public AnalysisServiceImpl(InsightServices insightServices, GroqClient groqClient) {
+    public AnalysisServiceImpl(InsightServices insightServices, GroqClient groqClient, ObjectMapper objectMapper) {
         this.insightServices=insightServices;
         this.groqClient =groqClient;
+        this.objectMapper = objectMapper;
     }
 
     @Override
     @Cacheable(value="aiUpsolve",key="#handle")
     public AiAnalysisResponseDTO analyzeUpsolve(String handle) {
-        List<WeakTopicDTO> weakTopics=insightServices.getWeakTopics(handle);
-        Map<Integer, List<UpsolveDTO>> upsolveContests=insightServices.getUpsolveContests(handle);
+        List<WeakTopicDTO> weakTopics = insightServices.getWeakTopics(handle);
+        Map<Integer, List<UpsolveDTO>> upsolveContests = insightServices.getUpsolveContests(handle);
 
-        String prompt=buildPrompt(handle,weakTopics,upsolveContests);
-        String result= groqClient.generate(prompt);
-        return new AiAnalysisResponseDTO(result);
+        String prompt = buildPrompt(handle, weakTopics, upsolveContests);
+        String result = groqClient.generate(prompt);
+
+        try {
+            String cleaned = result.replaceAll("(?s)```json\\s*|```", "").trim();
+            log.info("Cleaned AI response: {}", cleaned);
+            return objectMapper.readValue(cleaned, AiAnalysisResponseDTO.class);
+
+        } catch (Exception e) {
+            log.error("Failed to parse AI response for handle: {}. Raw response: {}", handle, result, e);
+            throw new RuntimeException("Failed to parse AI analysis response", e);
+        }
     }
 
     private String buildPrompt(
@@ -74,15 +86,32 @@ public class AnalysisServiceImpl implements AnalysisService {
         }
 
         sb.append("""
-            \nFor each unsolved problem, provide:
-            1. What likely went wrong based on the verdict and tags
-            2. The specific concept to study
-            3. One concrete thing to try differently
-            
-            Then give one overall recommendation based on the weak topic pattern.
-            Keep the tone encouraging but direct. Be specific, not generic.
-            """);
+IMPORTANT RULES:
+- Return ONLY raw JSON
+- DO NOT use markdown (no ```json)
+- DO NOT rename fields
+- Use EXACT field names:
 
+problemAnalyses
+overallRecommendation
+
+If you change field names, the system will break.
+
+Example:
+{
+  "problemAnalyses": [
+    {
+      "contestId": 123,
+      "problemIndex": "A",
+      "problemName": "Example",
+      "likelyIssue": "Wrong approach",
+      "conceptToStudy": "Binary Search",
+      "actionableTip": "Practice lower_bound problems"
+    }
+  ],
+  "overallRecommendation": "Focus on weak topics"
+}
+""");
         return sb.toString();
     }
 }

@@ -1,6 +1,13 @@
 package com.algolens.algo_lens.dtos.analysis;
 
-import java.io.Serializable;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-public record AiAnalysisResponseDTO(String analysis) implements Serializable {
+import java.io.Serializable;
+import java.util.List;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record AiAnalysisResponseDTO(
+        List<ProblemAnalysisDTO> problemAnalyses,
+        String overallRecommendation
+) implements Serializable {
 }
