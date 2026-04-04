@@ -15,16 +15,16 @@ import java.util.UUID;
 @Entity
 @Getter
 @NoArgsConstructor
-@Table(name="CodeforcesUsers")
+@Table(name="codeforces_users")
 public class User implements UserDetails {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID userId;
 
-    @NotBlank(message = "Username field can't be blank")
-    @Column(nullable = false, unique = true)
-    private String username;
+//    @NotBlank(message = "Username field can't be blank")
+//    @Column(nullable = false, unique = true)
+//    private String username;
 
     @NotBlank(message = "Email field can't be blank")
     @Column(nullable = false,unique = true)
@@ -34,6 +34,9 @@ public class User implements UserDetails {
     @Size(min=5,message = "The password must have at least 5 characters")
     private String password;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    private RefreshToken refreshToken;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of();
@@ -41,12 +44,12 @@ public class User implements UserDetails {
 
     @Override
     public String getPassword() {
-        return "";
+        return password;
     }
 
     @Override
     public String getUsername() {
-        return "";
+        return email;
     }
 
     @Override
