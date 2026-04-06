@@ -3,6 +3,8 @@ package com.algolens.algo_lens.auth.entities;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -15,6 +17,8 @@ import java.util.UUID;
 @Entity
 @Getter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Table(name="codeforces_users")
 public class User implements UserDetails {
 
@@ -25,6 +29,9 @@ public class User implements UserDetails {
 //    @NotBlank(message = "Username field can't be blank")
 //    @Column(nullable = false, unique = true)
 //    private String username;
+
+    @NotBlank(message = "Name field can't be blank")
+    private String name;
 
     @NotBlank(message = "Email field can't be blank")
     @Column(nullable = false,unique = true)

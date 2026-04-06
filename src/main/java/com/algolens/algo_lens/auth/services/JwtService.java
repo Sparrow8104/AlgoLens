@@ -17,7 +17,7 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
-    private String secret;
+    private String secret="";
 
          public <T> T extractClaims(String token, Function<Claims, T> claimResolver) {
              Claims claims = extractAllClaims(token);
