@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -35,19 +36,22 @@ public class AuthFilterService extends OncePerRequestFilter {
             return;
         }
         String jwt=authHeader.substring(7);
-        String username=jwtService.extractUsername(jwt);
+        try {
+            final String userEmail =jwtService.extractUsername(jwt);
+            if(userEmail !=null&& SecurityContextHolder.getContext().getAuthentication()==null) {
+                UserDetails userDetails=userDetailsService.loadUserByUsername(userEmail);
 
-        if(username!=null&& SecurityContextHolder.getContext().getAuthentication()==null) {
-            UserDetails userDetails=userDetailsService.loadUserByUsername(username);
-
-            if(jwtService.validateToken(jwt,userDetails)) {
-                UsernamePasswordAuthenticationToken authentication=new UsernamePasswordAuthenticationToken(userDetails,
-                        null,
-                        userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                if(jwtService.validateToken(jwt,userDetails)) {
+                    UsernamePasswordAuthenticationToken authentication=new UsernamePasswordAuthenticationToken(userDetails,
+                            null,
+                            userDetails.getAuthorities());
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
+        } catch (Exception e) {
+            SecurityContextHolder.clearContext();
         }
-      filterChain.doFilter(request,response);
+        filterChain.doFilter(request,response);
     }
 }

@@ -30,6 +30,18 @@ spring:
     redis:
       time-to-live: 300000
 
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+        starttls:
+          enable: true
+
 groq:
   api:
     key: ${GROQ_API_KEY}
