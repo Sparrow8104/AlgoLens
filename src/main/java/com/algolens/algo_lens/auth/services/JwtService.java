@@ -1,11 +1,12 @@
 package com.algolens.algo_lens.auth.services;
 
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import com.algolens.algo_lens.auth.exception.TokenRefreshException;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -17,23 +18,35 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
-    private String secret="";
 
-         public <T> T extractClaims(String token, Function<Claims, T> claimResolver) {
-             Claims claims = extractAllClaims(token);
-             return claimResolver.apply(claims);
+        @Value("${jwt.secret}")
+        private String secret;
+
+        @Value("${jwt.access-token-expiration}")
+        private long accessTokenExpiration;
+
+         private  <T> T extractClaims(String token, Function<Claims, T> claimResolver) {
+             return claimResolver.apply( extractAllClaims(token));
          }
 
-         public Claims extractAllClaims(String token) {
-             return Jwts
-                     .parserBuilder()
-                     .setSigningKey(getSignInKey())
-                     .build()
-                     .parseClaimsJws(token)
-                     .getBody();
+         private Claims extractAllClaims(String token) {
+             try {
+                 return Jwts
+                         .parserBuilder()
+                         .setSigningKey(getSignInKey())
+                         .build()
+                         .parseClaimsJws(token)
+                         .getBody();
+             } catch (ExpiredJwtException e) {
+                 throw new TokenRefreshException("Jwt Token has expired");
+             } catch (UnsupportedJwtException | MalformedJwtException | SignatureException e) {
+                 throw new TokenRefreshException("Invalid jwt token: "+e.getMessage());
+             }  catch (IllegalArgumentException e) {
+                 throw new TokenRefreshException("JWT claims string is empty");
+             }
          }
 
-         public Key getSignInKey() {
+         private Key getSignInKey() {
              byte[] bytes= Decoders.BASE64.decode(secret);
              return Keys.hmacShaKeyFor(bytes);
          }
@@ -43,22 +56,23 @@ public class JwtService {
          }
 
          public String extractUsername(String token) {
-             return extractAllClaims(token).getSubject();
+             return extractClaims(token,Claims::getSubject);
          }
 
-         public Date extractExpirationTime(String token) {
-             return extractAllClaims(token).getExpiration();
+         private Date extractExpirationTime(String token) {
+             return extractClaims(token, Claims::getExpiration);
          }
          public String generateToken(
                  Map<String, Object> claims,
                  UserDetails userDetails
          ){
+
              return Jwts.builder()
                      .setClaims(claims)
                      .setSubject(userDetails.getUsername())
                      .setIssuedAt(new Date(System.currentTimeMillis()))
-                     .setExpiration(new Date(System.currentTimeMillis()+1000*60*15))
-                     .signWith(getSignInKey(),SignatureAlgorithm.HS256)
+                     .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
+                     .signWith(getSignInKey())
                      .compact();
          }
 

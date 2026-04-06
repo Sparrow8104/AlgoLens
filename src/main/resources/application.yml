@@ -2,7 +2,7 @@ spring:
   application:
     name: algo_lens
   config:
-    import: optional:application-secret.yml
+    import: optional:classpath:application-secret.yml
 
   jpa:
     show-sql: true
