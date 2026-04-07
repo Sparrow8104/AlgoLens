@@ -20,6 +20,9 @@ spring:
     redis:
       time-to-live: 300000
 
+  profiles:
+   active: local
+
 
 logging:
   level:

@@ -14,6 +14,7 @@ import com.algolens.algo_lens.auth.utils.RefreshTokenRequest;
 import com.algolens.algo_lens.auth.utils.RegisterRequest;
 import com.algolens.algo_lens.auth.entities.User;
 import com.algolens.algo_lens.exception.UserNotFoundException;
+import jakarta.validation.constraints.Email;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -49,8 +50,20 @@ public class AuthService {
 
     @Transactional
     public String register(RegisterRequest registerRequest) {
-        if (userRepository.findByEmail(registerRequest.email()).isPresent()) {
-            throw new UserAlreadyExistsException("Email already registered: "+registerRequest.email());
+
+        var existingUser=userRepository.findByEmail(registerRequest.email());
+
+        if(existingUser.isPresent()) {
+            User user=existingUser.get();
+
+            if(user.isEmailVerified()) {
+                throw new UserAlreadyExistsException("Email already registered: "+registerRequest.email());
+            }
+
+            emailVerificationTokenRepository.deleteByUser(user);
+            sendVerificationEmail(user);
+            return "Verification email sent.Please check your email address.";
+
         }
         var user= User.builder()
                 .name(registerRequest.name())
@@ -60,17 +73,7 @@ public class AuthService {
                 .emailVerified(false)
                 .build();
         userRepository.save(user);
-
-        String token= UUID.randomUUID().toString();
-
-        EmailVerificationToken emailVerificationToken = EmailVerificationToken.builder()
-                .token(token)
-                .user(user)
-                .expiresAt(Instant.now().plusSeconds(86400))
-                .build();
-
-        emailVerificationTokenRepository.save(emailVerificationToken);
-        emailService.sendEmailVerification(user.getEmail(), token);
+        sendVerificationEmail(user);
         return "Registration successful. Please check you email to verify your account";
     }
 
@@ -128,5 +131,24 @@ public class AuthService {
                 .orElseThrow(()->new UsernameNotFoundException("User not found: "+userEmail));
         refreshTokenRepository.deleteByUser(user);
         return "Logged out successfully";
+    }
+
+    private void sendVerificationEmail(User user) {
+        String token= UUID.randomUUID().toString();
+        Instant expiry=Instant.now().plusSeconds(86400);
+        EmailVerificationToken emailVerificationToken=emailVerificationTokenRepository.
+                findByUser(user)
+                .map(existingToken->{
+                    existingToken.setToken(token);
+                    existingToken.setExpiresAt(expiry);
+                    return existingToken;
+                        })
+                .orElseGet(()->EmailVerificationToken.builder()
+                        .token(token)
+                        .user(user)
+                        .expiresAt(expiry)
+                        .build());
+        emailVerificationTokenRepository.save(emailVerificationToken);
+        emailService.sendEmailVerification(user.getEmail(), token);
     }
 }

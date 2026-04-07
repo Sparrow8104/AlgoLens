@@ -22,7 +22,7 @@ public class EmailService {
     private String fromEmail;
 
     public void sendEmailVerification(String toMail,String token) {
-        String verificationLink=baseUrl+"api/auth/verify-email?token=/"+token;
+        String verificationLink=baseUrl+"/api/auth/verify-email?token="+token;
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail);
