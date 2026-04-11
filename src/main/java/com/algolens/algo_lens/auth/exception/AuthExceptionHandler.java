@@ -1,5 +1,6 @@
 package com.algolens.algo_lens.auth.exception;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -29,6 +30,17 @@ public class AuthExceptionHandler {
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleUserNotFound(UsernameNotFoundException ex) {
         return error(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimit(RateLimitExceededException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(Map.of(
+                        "error", "rate_limit_exceeded",
+                        "message", ex.getMessage(),
+                        "retryAfterSeconds", ex.getRetryAfterSeconds()
+                ));
     }
     private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(

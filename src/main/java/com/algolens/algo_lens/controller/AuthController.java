@@ -6,11 +6,15 @@ import com.algolens.algo_lens.auth.utils.AuthRequest;
 import com.algolens.algo_lens.auth.utils.AuthResponse;
 import com.algolens.algo_lens.auth.utils.RefreshTokenRequest;
 import com.algolens.algo_lens.auth.utils.RegisterRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.apache.coyote.Response;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -23,9 +27,17 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest registerRequest) {
-        return ResponseEntity.ok(authService.register(registerRequest));
+    public ResponseEntity<String> register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String ip = Optional.ofNullable(httpRequest.getHeader("X-Forwarded-For"))
+                .map(h -> h.split(",")[0].trim())
+                .orElse(httpRequest.getRemoteAddr());
+
+        return ResponseEntity.ok(authService.register(request, ip));
     }
+
 
     @GetMapping("/verify-email")
     public ResponseEntity<String> verifyEmail(@RequestParam String token) {

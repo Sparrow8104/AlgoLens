@@ -36,8 +36,9 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
+    private final EmailRateLimiterService emailRateLimiterService;
 
-    public AuthService(PasswordEncoder passwordEncoder, JwtService jwtService, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService, AuthenticationManager authenticationManager, EmailVerificationTokenRepository emailVerificationTokenRepository, EmailService emailService) {
+    public AuthService(PasswordEncoder passwordEncoder, JwtService jwtService, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService, AuthenticationManager authenticationManager, EmailVerificationTokenRepository emailVerificationTokenRepository, EmailService emailService, EmailRateLimiterService emailRateLimiterService) {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
@@ -46,10 +47,11 @@ public class AuthService {
         this.authenticationManager = authenticationManager;
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.emailService = emailService;
+        this.emailRateLimiterService = emailRateLimiterService;
     }
 
     @Transactional
-    public String register(RegisterRequest registerRequest) {
+    public String register(RegisterRequest registerRequest,String ip) {
 
         var existingUser=userRepository.findByEmail(registerRequest.email());
 
@@ -61,7 +63,7 @@ public class AuthService {
             }
 
             emailVerificationTokenRepository.deleteByUser(user);
-            sendVerificationEmail(user);
+            sendVerificationEmail(user,ip);
             return "Verification email sent.Please check your email address.";
 
         }
@@ -73,7 +75,7 @@ public class AuthService {
                 .emailVerified(false)
                 .build();
         userRepository.save(user);
-        sendVerificationEmail(user);
+        sendVerificationEmail(user,ip);
         return "Registration successful. Please check you email to verify your account";
     }
 
@@ -133,7 +135,8 @@ public class AuthService {
         return "Logged out successfully";
     }
 
-    private void sendVerificationEmail(User user) {
+    private void sendVerificationEmail(User user,String ip) {
+        emailRateLimiterService.checkAndRecord(user.getEmail(), ip);
         String token= UUID.randomUUID().toString();
         Instant expiry=Instant.now().plusSeconds(86400);
         EmailVerificationToken emailVerificationToken=emailVerificationTokenRepository.
