@@ -6,7 +6,11 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "password_reset_tokens")
+@Table(name = "password_reset_tokens", indexes = {
+        @Index(name = "idx_prt_token_hash", columnList = "tokenHash"),
+        @Index(name = "idx_prt_jti",        columnList = "jti"),
+        @Index(name = "idx_prt_user",        columnList = "user_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,10 +22,13 @@ public class PasswordResetToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String token;
+    @Column(nullable = false, unique = true, length = 64)
+    private String tokenHash;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @Column(nullable = false, unique = true)
+    private String jti;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
@@ -29,5 +36,14 @@ public class PasswordResetToken {
     private Instant expiresAt;
 
     @Column(nullable = false)
-    private boolean used = false;
+    private boolean used;
+
+    @Column(length = 60)
+    private String otpHash;
+
+    @Column
+    private Instant otpExpiresAt;
+
+    @Column(nullable = false)
+    private int otpAttempts;
 }

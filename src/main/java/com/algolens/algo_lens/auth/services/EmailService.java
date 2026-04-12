@@ -40,25 +40,48 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    public void sendPasswordResetEmail(String toEmail, String token) {
+    public void sendPasswordResetEmail(String toEmail, String token, long expiryMinutes) {
         String resetLink = frontendBaseUrl + "/reset-password?token=" + token;
 
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
         message.setTo(toEmail);
         message.setSubject("AlgoLens — Reset Your Password");
         message.setText("""
-            Hi,
+                Hi,
+ 
+                We received a request to reset your AlgoLens password.
+                Click the link below to choose a new password (expires in %d minutes):
+ 
+                %s
+ 
+                If you did not request this, you can safely ignore this email.
+                Your password will not change unless you click the link above.
+ 
+                — The AlgoLens Team
+                """.formatted(expiryMinutes, resetLink));
 
-            We received a request to reset your AlgoLens password.
-            Click the link below to choose a new password (expires in 15 minutes):
+        mailSender.send(message);
+    }
 
-            %s
-
-            If you did not request this, you can safely ignore this email.
-            Your password will not change unless you click the link above.
-
-            — The AlgoLens Team
-            """.formatted(resetLink));
+    public void sendOtpEmail(String toEmail, String otp, long expiryMinutes) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(toEmail);
+        message.setSubject("AlgoLens — Your Password Reset Code");
+        message.setText("""
+                Hi,
+ 
+                Your AlgoLens password reset verification code is:
+ 
+                    %s
+ 
+                This code expires in %d minutes. Do not share it with anyone.
+ 
+                If you did not request a password reset, please secure your account immediately.
+ 
+                — The AlgoLens Team
+                """.formatted(otp, expiryMinutes));
 
         mailSender.send(message);
     }

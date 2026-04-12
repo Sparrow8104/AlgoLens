@@ -72,21 +72,6 @@ public class AuthController {
         return ResponseEntity.ok(authService.logoutAll(userDetails.getUsername()));
     }
 
-    @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(
-            @Valid @RequestBody ForgotPasswordRequest request,
-            HttpServletRequest httpRequest) {
-
-        String ip = extractIp(httpRequest);
-        return ResponseEntity.ok(passwordResetService.forgotPassword(request, ip));
-    }
-
-    @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(
-            @Valid @RequestBody ResetPasswordRequest request) {
-
-        return ResponseEntity.ok(passwordResetService.resetPassword(request));
-    }
     @PostMapping("/resend-verification")
     public ResponseEntity<String> resendVerification(@RequestParam String email,
                                                      HttpServletRequest httpRequest) {

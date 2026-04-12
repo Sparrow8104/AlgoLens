@@ -54,6 +54,16 @@ public class AuthExceptionHandler {
         return ResponseEntity.status(HttpStatus.GONE)
                 .body(Map.of("error", ex.getMessage()));
     }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<Map<String, Object>> handleTooManyRequests(TooManyRequestsException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(Map.of(
+                        "error", ex.getMessage(),
+                        "status", HttpStatus.TOO_MANY_REQUESTS.value(),
+                        "timestamp", Instant.now().toString()
+                ));
+    }
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
