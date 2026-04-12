@@ -1,336 +1,219 @@
-# AlgoLens — AI-Powered Codeforces Solution Analyzer
+# AlgoLens — Competitive Programming Analytics & AI Insights Platform
 
 ## Overview
 
-The goal of this project is to provide deeper insights into competitive programming progress while also allowing users to **compare their code with other programmers' solutions**.
+AlgoLens is a backend system designed to provide deep insights into competitive programming performance using Codeforces data. It combines analytics, comparison tools, and AI-driven analysis to help users improve their problem-solving skills.
 
-This project is designed as a **full-stack analytics tool** that combines performance tracking, data visualization, and AI-assisted code analysis.
-
----
-
-## Key Features
-
-### 1. User Profile
-
-Fetch and display a user's basic information.
-
-Displayed data:
-
-* Handle
-* Rating
-* Max Rating
-* Rank
-* Avatar
+The platform enables users to track progress, compare with peers, and receive intelligent recommendations based on their coding behavior.
 
 ---
 
-### 2. Rating & Contest History
+## Features
 
-Track performance across contests.
+### Authentication & Security
 
-Information displayed:
-
-* Contest name
-* Rank achieved
-* Old rating
-* New rating
-* Rating change
-
-This allows users to analyze how their rating evolves over time.
-
----
-
-### 3. Rating Progression Graph
-
-Visual representation of rating progression.
-
-Helps users understand:
-
-* long-term improvement
-* rating fluctuations
-* contest impact on performance
+- JWT-based authentication  
+- Refresh token rotation  
+- Email verification system  
+- Password reset functionality  
+- Login attempt limiting  
+- Email rate limiting  
+- Device-based session management  
+- Logout and logout-all support  
 
 ---
 
-### 4. Upcoming Contests
+### User Analytics
 
-Displays upcoming Codeforces contests.
-
-Information shown:
-
-* Contest name
-* Start time
-* Duration
-
-This allows users to prepare for upcoming competitions.
+- Fetch Codeforces user profile  
+- Contest history tracking  
+- Rating progression graph  
+- Submission statistics analysis  
 
 ---
 
-### 5. Submission Statistics
+### Contest Features
 
-Analyze a user's submission behavior.
-
-Statistics include:
-
-* Total submissions
-* Accepted submissions
-* Acceptance rate
-* Languages used
-
-This provides insights into coding habits.
+- Upcoming contests  
+- Paginated contest history  
 
 ---
 
-### 6. Problem Difficulty Distribution
+### Comparison System
 
-Shows problems solved grouped by difficulty level.
-
-Example categories:
-
-* 800–1000
-* 1000–1200
-* 1200–1400
-* 1400–1600
-* 1600+
-
-This helps identify:
-
-* strengths
-* weak difficulty ranges.
+- Compare ratings between two users  
+- Compare submissions for the same problem  
 
 ---
 
-### 7. Rating Comparison
+### Social & Insights
 
-Compare two Codeforces users.
-
-Comparison includes:
-
-* Current rating
-* Maximum rating
-* Rank
-
-This feature helps evaluate performance between programmers.
+- Friend system  
+- Leaderboard comparison with friends  
+- Weak topic detection  
+- Personalized problem recommendations  
+- Upsolve suggestions from recent contests  
 
 ---
 
-### 8. Code Comparison
+### AI-Powered Analysis
 
-Allows users to compare solutions for the same problem.
-
-Workflow:
-
-1. Provide two handles and a problem ID
-2. Fetch accepted submissions
-3. Retrieve source code
-4. Display code side-by-side
-
-This makes it easy to analyze how different programmers approach the same problem.
-
----
-
-### 9. AI Code Explanation
-
-AI analyzes two solutions and explains their differences.
-
-AI analysis includes:
-
-* Algorithm used
-* Time complexity
-* Key optimizations
-* Which solution is more efficient
-
-This helps users **learn new techniques by studying other solutions**.
-
----
-
-### 10. Code Similarity Detection
-
-Measures how similar two solutions are.
-
-Possible approaches:
-
-* Token comparison
-* String similarity
-* Structural analysis
-
-Returns a similarity percentage.
-
----
-
-### 11. Submission Caching
-
-To improve performance, previously fetched submissions are cached in the database.
-
-Stored data may include:
-
-* submission code
-* comparison history
-* AI analysis results
-
-This avoids repeated scraping and speeds up future comparisons.
+- AI-based upsolve analysis  
+- Insights into problem-solving approaches  
 
 ---
 
 ## Tech Stack
 
-Backend
+**Backend**
+- Java  
+- Spring Boot  
+- Spring Security  
 
-* Java
-* Spring Boot
-* MySQL
+**Database**
+- MySQL  
 
-External Data Source
+**External APIs**
+- Codeforces API  
 
-* Codeforces API
-
-Core Technologies
-
-* REST APIs
-* Web scraping for submission source code
-* AI-based code analysis
+**Other**
+- REST APIs  
+- WebClient (for API calls)  
 
 ---
 
 ## Architecture Overview
 
-User
+Client
 ↓
-Frontend Interface
+REST Controllers
 ↓
-Spring Boot Backend
+Service Layer
 ↓
-Codeforces API
-↓
-MySQL Database
-↓
-AI Analysis Service
+├── Codeforces API (data fetch)
+├── Database (user data, caching)
+└── AI Analysis Service
+
+### Security Layer
+
+- JWT Authentication  
+- Refresh Token Rotation  
+- Rate Limiting (login & email)  
 
 ---
 
-## Core API Endpoints
+## API Endpoints
 
-User Profile
+### Authentication
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+POST /api/auth/logout-all
+GET /api/auth/verify-email
+POST /api/auth/resend-verification
+POST /api/auth/forgot-password
+POST /api/auth/reset-password
 
-GET /api/user/{handle}
-
----
-
-Contest History
-
-GET /api/user/{handle}/contests
-
----
-
-Rating Graph
-
-GET /api/user/{handle}/rating-graph
 
 ---
 
-Upcoming Contests
+### User
+GET /api/users/{handle}/profile
+GET /api/users/{handle}/contest-history
+GET /api/users/{handle}/rating-graph
+GET /api/users/{handle}/submission-stats
+
+
+---
+
+### Contests
+
 
 GET /api/contests/upcoming
+GET /api/contests?page=0&size=20
 
----
 
-Submission Statistics
+### Comparison
 
-GET /api/user/{handle}/stats
-
----
-
-Difficulty Distribution
-
-GET /api/user/{handle}/difficulty-distribution
-
----
-
-Rating Comparison
 
 GET /api/compare/rating?handle1=A&handle2=B
-
----
-
-Find Accepted Submissions
-
 POST /api/compare/find
 
-Input:
-
-* handle1
-* handle2
-* problemId
 
 ---
 
-Retrieve Submission Code
+### Friends
 
-POST /api/compare/code
+POST /api/friends/add
+DELETE /api/friends/{userHandle}/remove/{friendHandle}
+GET /api/friends/{handle}
+GET /api/friends/{handle}/leaderboard
+GET /api/friends/{handle}/unsolved-by-me
+GET /api/friends/{handle}/streak-compare
+GET /api/friends/{handle}/contest-overlap/{contestId}
 
-Returns:
-
-* code1
-* code2
-* language
 
 ---
 
-AI Solution Analysis
+### Insights
 
-POST /api/analyze
 
-Input:
+GET /api/insights/{handle}/weak-topics
+GET /api/insights/{handle}/recommendations
+GET /api/insights/{handle}/upsolve
 
-* codeA
-* codeB
+### AI Analysis
+
+
+GET /api/analysis/upsolve/{handle}
+
 
 ---
 
-Code Similarity
+## Setup Instructions
 
-POST /api/similarity
+### Prerequisites
 
-Returns:
+- Java 17+  
+- Maven  
+- MySQL  
 
-* similarity percentage
+---### 1. Clone the repository
 
----
+```bash
+git clone https://github.com/your-username/algolens.git
+cd algolens
+```
 
-## Database Tables (Example)
+2. Configure environment variables
 
-users
-Stores user metadata.
+Set the following in application.properties or environment:
 
-submissions
-Stores cached submission code.
+spring.datasource.url=YOUR_DB_URL
+spring.datasource.username=YOUR_DB_USERNAME
+spring.datasource.password=YOUR_DB_PASSWORD
 
-comparisons
-Stores comparison history and analysis results.
+jwt.secret=YOUR_SECRET_KEY
+
+3. Run the application
+mvn spring-boot:run
+4. Access API
+http://localhost:8080
+Security Notes
+Access tokens are short-lived
+Refresh tokens are rotated and stored securely
+Sensitive operations require authentication
+Rate limiting prevents abuse
 
 
-## Goals of the Project
+Future Improvements
+Contest performance prediction
+Advanced AI recommendations
+Code similarity detection
+Frontend dashboard integration
 
-* Help competitive programmers analyze their progress.
-* Provide insights into contest performance.
-* Allow direct comparison of algorithmic solutions.
-* Use AI to explain solution differences.
-* Encourage learning through code analysis.
 
----
-
-## Future Improvements
-
-Possible enhancements:
-
-* Practice recommendations
-* Weak topic detection
-* Contest performance prediction
-* Personalized training suggestions
-* Code optimization suggestions
-
----
-
-## Author
+Author
 
 Developed as a competitive programming analytics and learning platform.
