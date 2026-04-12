@@ -12,7 +12,7 @@ import java.util.List;
 public class EmailRateLimiterService {
 
     private static final long COOLDOWN_SECONDS = 60;
-    private static final long MAX_SENDS_PER_HOUR=3;
+    private static final long MAX_SENDS_PER_HOUR=10;
     private static final long HOUR_SECONDS = 3600;
 
     private static final String EMAIL_COOLDOWN="ev:cd:email:";

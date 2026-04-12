@@ -30,9 +30,15 @@ public class SecurityConfiguration {
     private final AuthFilterService authFilterService;
     private final AuthenticationProvider authenticationProvider;
     private static final String[] PUBLIC_URLS={
-            "/api/auth/**",
+            "/api/auth/register",
+            "/api/auth/login",
+            "/api/auth/refresh",
+            "/api/auth/verify-email",
+            "/api/auth/resend-verification",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
             "/v3/api-docs/**",
-            "/swagger-ui",
+            "/swagger-ui/**",
             "/actuator/health"
     };
     @Bean

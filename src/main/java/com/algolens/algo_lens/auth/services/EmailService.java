@@ -21,6 +21,9 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
+
     public void sendEmailVerification(String toMail,String token) {
         String verificationLink=baseUrl+"/api/auth/verify-email?token="+token;
 
@@ -37,6 +40,28 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    public void sendPasswordResetEmail(String toEmail, String token) {
+        String resetLink = frontendBaseUrl + "/reset-password?token=" + token;
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("AlgoLens — Reset Your Password");
+        message.setText("""
+            Hi,
+
+            We received a request to reset your AlgoLens password.
+            Click the link below to choose a new password (expires in 15 minutes):
+
+            %s
+
+            If you did not request this, you can safely ignore this email.
+            Your password will not change unless you click the link above.
+
+            — The AlgoLens Team
+            """.formatted(resetLink));
+
+        mailSender.send(message);
+    }
 
 
 }

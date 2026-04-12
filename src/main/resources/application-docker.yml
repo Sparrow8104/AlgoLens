@@ -50,6 +50,8 @@ groq:
 
 app:
   base-url: ${BASE_URL}
+  frontend:
+    base-url: ${APP_FRONTEND_BASE_URL:${FRONTEND_BASE_URL}}
 
 jwt:
   secret: ${JWT_SECRET}

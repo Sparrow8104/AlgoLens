@@ -1,20 +1,18 @@
 package com.algolens.algo_lens.auth.services;
 
 
-import com.algolens.algo_lens.auth.entities.EmailVerificationToken;
-import com.algolens.algo_lens.auth.entities.RefreshToken;
-import com.algolens.algo_lens.auth.entities.UserRole;
+import com.algolens.algo_lens.auth.entities.*;
+import com.algolens.algo_lens.auth.exception.EmailNotVerifiedException;
+import com.algolens.algo_lens.auth.exception.InvalidTokenException;
+import com.algolens.algo_lens.auth.exception.TokenExpiredException;
 import com.algolens.algo_lens.auth.exception.UserAlreadyExistsException;
-import com.algolens.algo_lens.auth.repositories.EmailVerificationTokenRepository;
+import com.algolens.algo_lens.auth.repositories.PendingRegistrationRepository;
 import com.algolens.algo_lens.auth.repositories.RefreshTokenRepository;
 import com.algolens.algo_lens.auth.repositories.UserRepository;
 import com.algolens.algo_lens.auth.utils.AuthRequest;
 import com.algolens.algo_lens.auth.utils.AuthResponse;
 import com.algolens.algo_lens.auth.utils.RefreshTokenRequest;
 import com.algolens.algo_lens.auth.utils.RegisterRequest;
-import com.algolens.algo_lens.auth.entities.User;
-import com.algolens.algo_lens.exception.UserNotFoundException;
-import jakarta.validation.constraints.Email;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -28,130 +26,195 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+    private static final long VERIFICATION_TTL_SECONDS = 86_400;
+
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenService refreshTokenService;
     private final AuthenticationManager authenticationManager;
-    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
     private final EmailRateLimiterService emailRateLimiterService;
+    private final LoginAttemptService loginAttemptService;
 
-    public AuthService(PasswordEncoder passwordEncoder, JwtService jwtService, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService, AuthenticationManager authenticationManager, EmailVerificationTokenRepository emailVerificationTokenRepository, EmailService emailService, EmailRateLimiterService emailRateLimiterService) {
+    private final PendingRegistrationRepository pendingRegistrationRepository;
+
+    public AuthService(PasswordEncoder passwordEncoder, JwtService jwtService, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService, AuthenticationManager authenticationManager, EmailService emailService, EmailRateLimiterService emailRateLimiterService, LoginAttemptService loginAttemptService, PendingRegistrationRepository pendingRegistrationRepository) {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenService = refreshTokenService;
         this.authenticationManager = authenticationManager;
-        this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.emailService = emailService;
         this.emailRateLimiterService = emailRateLimiterService;
+        this.loginAttemptService = loginAttemptService;
+        this.pendingRegistrationRepository = pendingRegistrationRepository;
     }
 
     @Transactional
     public String register(RegisterRequest registerRequest,String ip) {
 
-        var existingUser=userRepository.findByEmail(registerRequest.email());
-
-        if(existingUser.isPresent()) {
-            User user=existingUser.get();
-
-            if(user.isEmailVerified()) {
-                throw new UserAlreadyExistsException("Email already registered: "+registerRequest.email());
-            }
-
-            emailVerificationTokenRepository.deleteByUser(user);
-            sendVerificationEmail(user,ip);
-            return "Verification email sent.Please check your email address.";
-
+        String email = registerRequest.email().trim().toLowerCase();
+        var existingUser=userRepository.findByEmail(email);
+        if (existingUser.isPresent()) {
+            throw new UserAlreadyExistsException("Email already registered: " + registerRequest.email());
         }
-        var user= User.builder()
-                .name(registerRequest.name())
-                .password(passwordEncoder.encode(registerRequest.password()))
-                .email(registerRequest.email())
-                .role(UserRole.USER)
-                .emailVerified(false)
-                .build();
-        userRepository.save(user);
-        sendVerificationEmail(user,ip);
+        emailRateLimiterService.checkAndRecord(email, ip);
+
+        String token = UUID.randomUUID().toString();
+        String hashedToken = refreshTokenService.hashToken(token);
+        Instant expiry = Instant.now().plusSeconds(VERIFICATION_TTL_SECONDS);
+
+        PendingRegistration pending = pendingRegistrationRepository
+                .findByEmail(email)
+                .map(existing -> {
+                    existing.setName(registerRequest.name().trim());
+                    existing.setEncodedPassword(passwordEncoder.encode(registerRequest.password()));
+                    existing.setExpiresAt(expiry);
+                    existing.setToken(hashedToken);
+                    return existing;
+                })
+                .orElseGet(() -> PendingRegistration.builder()
+                        .email(email)
+                        .name(registerRequest.name().trim())
+                        .encodedPassword(passwordEncoder.encode(registerRequest.password()))
+                        .token(hashedToken)
+                        .expiresAt(expiry)
+                        .build());
+
+        pendingRegistrationRepository.save(pending);
+        emailService.sendEmailVerification(email, token);
+
         return "Registration successful. Please check you email to verify your account";
     }
 
     @Transactional
-    public String verifyEmail(String token){
-        EmailVerificationToken verificationToken=emailVerificationTokenRepository.findByToken(token)
-                .orElseThrow(()->new RuntimeException("Invalid or expired token"));
+    public String verifyEmail(String rawToken){
 
-        if(verificationToken.getExpiresAt().isBefore(Instant.now())){
-            emailVerificationTokenRepository.delete(verificationToken);
-            throw new RuntimeException("Verification Link has expired.Please register again");
+        String tokenHash = refreshTokenService.hashToken(rawToken);
+        PendingRegistration pending = pendingRegistrationRepository.findByToken(tokenHash)
+                .orElseThrow(() -> new InvalidTokenException("Invalid or expired verification link."));
+
+        if (pending.getExpiresAt().isBefore(Instant.now())) {
+            pendingRegistrationRepository.delete(pending);
+            throw new TokenExpiredException(
+                    "Verification link has expired. Please request a new one.");
         }
 
-        User user=verificationToken.getUser();
-        user.setEmailVerified(true);
+        if (userRepository.findByEmail(pending.getEmail()).isPresent()) {
+            pendingRegistrationRepository.delete(pending);
+            return "Email already verified. You can log in.";
+        }
+
+        User user = User.builder()
+                .name(pending.getName())
+                .email(pending.getEmail())
+                .password(pending.getEncodedPassword())
+                .role(UserRole.USER)
+                .emailVerified(true)
+                .build();
+
         userRepository.save(user);
+        pendingRegistrationRepository.delete(pending);
 
-        emailVerificationTokenRepository.delete(verificationToken);
-
-        return "Email verified successfully.You can now log in.";
+        return "Email verified successfully. You can now log in.";
     }
 
-    public AuthResponse login(AuthRequest authRequest) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(authRequest.email(), authRequest.password()));
-        var user= userRepository.findByEmail(authRequest.email())
-                .orElseThrow(()->new UsernameNotFoundException("User not found: "+authRequest.email()));
-        if(!user.isEmailVerified()){
-            throw new RuntimeException("Please verify your email address before logging in.");
+    @Transactional
+    public AuthResponse login(AuthRequest authRequest, String deviceId, String userAgent, String ip) {
+        String email = authRequest.email().trim().toLowerCase();
+
+
+        loginAttemptService.checkBlocked(ip);
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, authRequest.password()));
+        } catch (Exception ex) {
+            loginAttemptService.recordFailure(ip);
+            throw ex;
         }
-        var accessToken=jwtService.generateToken(user);
-        var refreshToken=refreshTokenService.createRefreshToken(user.getEmail());
+
+        loginAttemptService.clearFailures(ip);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+
+        if (!user.isEmailVerified()) {
+            throw new EmailNotVerifiedException(
+                    "Please verify your email address before logging in.");
+        }
+
+        String accessToken = jwtService.generateToken(user);
+
+        String rawRefreshToken = refreshTokenService.createRefreshToken(user, deviceId, userAgent, ip);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(refreshToken.getRefreshToken())
+                .refreshToken(rawRefreshToken)
                 .build();
     }
 
+    @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         RefreshToken verified = refreshTokenService.verifyRefreshToken(request.refreshToken());
-        RefreshToken rotated = refreshTokenService.rotateRefreshToken(verified);
+        String newRawRefreshToken = refreshTokenService.rotateRefreshToken(verified);
 
         User user = verified.getUser();
         String newAccessToken = jwtService.generateToken(user);
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
-                .refreshToken(rotated.getRefreshToken())
+                .refreshToken(newRawRefreshToken)
                 .build();
     }
 
     @Transactional
-    public String logout(String userEmail) {
-        User user=userRepository.findByEmail(userEmail)
-                .orElseThrow(()->new UsernameNotFoundException("User not found: "+userEmail));
-        refreshTokenRepository.deleteByUser(user);
-        return "Logged out successfully";
+    public String logout(String rawRefreshToken) {
+        String hashedToken = refreshTokenService.hashToken(rawRefreshToken);
+
+        refreshTokenRepository.findByRefreshToken(hashedToken)
+                .ifPresent(refreshTokenRepository::delete);
+
+        return "Logged out successfully.";
     }
 
-    private void sendVerificationEmail(User user,String ip) {
-        emailRateLimiterService.checkAndRecord(user.getEmail(), ip);
-        String token= UUID.randomUUID().toString();
-        Instant expiry=Instant.now().plusSeconds(86400);
-        EmailVerificationToken emailVerificationToken=emailVerificationTokenRepository.
-                findByUser(user)
-                .map(existingToken->{
-                    existingToken.setToken(token);
-                    existingToken.setExpiresAt(expiry);
-                    return existingToken;
-                        })
-                .orElseGet(()->EmailVerificationToken.builder()
-                        .token(token)
-                        .user(user)
-                        .expiresAt(expiry)
-                        .build());
-        emailVerificationTokenRepository.save(emailVerificationToken);
-        emailService.sendEmailVerification(user.getEmail(), token);
+    @Transactional
+    public String logoutAll(String userEmail) {
+        userRepository.findByEmail(userEmail.trim().toLowerCase())
+                .ifPresent(refreshTokenService::revokeAllSessions);
+        return "Logged out from all devices.";
     }
+
+    @Transactional
+    public String resendVerification(String rawEmail, String ip) {
+        String email = rawEmail.trim().toLowerCase();
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            return "If this email is pending verification, a new link has been sent.";
+        }
+
+        PendingRegistration pending = pendingRegistrationRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new InvalidTokenException(
+                        "If this email is pending verification, a new link has been sent ."));
+        emailRateLimiterService.checkAndRecord(email, ip);
+
+
+
+        String rawToken = UUID.randomUUID().toString();
+        String hashedToken =refreshTokenService.hashToken(rawToken);
+
+        pending.setToken(hashedToken);
+        pending.setExpiresAt(Instant.now().plusSeconds(VERIFICATION_TTL_SECONDS));
+        pendingRegistrationRepository.save(pending);
+
+        emailService.sendEmailVerification(email, rawToken);
+
+        return "If this email is pending verification, a new link has been sent.";
+    }
+
+
 }
