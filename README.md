@@ -105,24 +105,24 @@ Service Layer
 ## API Endpoints
 
 ### Authentication
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/refresh
-POST /api/auth/logout
-POST /api/auth/logout-all
-GET /api/auth/verify-email
-POST /api/auth/resend-verification
-POST /api/auth/forgot-password
-POST /api/auth/reset-password
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/refresh
+- POST /api/auth/logout
+- POST /api/auth/logout-all
+- GET /api/auth/verify-email
+- POST /api/auth/resend-verification
+- POST /api/auth/forgot-password
+- POST /api/auth/reset-password
 
 
 ---
 
 ### User
-GET /api/users/{handle}/profile
-GET /api/users/{handle}/contest-history
-GET /api/users/{handle}/rating-graph
-GET /api/users/{handle}/submission-stats
+- GET /api/users/{handle}/profile
+- GET /api/users/{handle}/contest-history
+- GET /api/users/{handle}/rating-graph
+- GET /api/users/{handle}/submission-stats
 
 
 ---
@@ -130,28 +130,28 @@ GET /api/users/{handle}/submission-stats
 ### Contests
 
 
-GET /api/contests/upcoming
-GET /api/contests?page=0&size=20
+- GET /api/contests/upcoming
+- GET /api/contests?page=0&size=20
 
 
 ### Comparison
 
 
-GET /api/compare/rating?handle1=A&handle2=B
-POST /api/compare/find
+- GET /api/compare/rating?handle1=A&handle2=B
+- POST /api/compare/find
 
 
 ---
 
 ### Friends
 
-POST /api/friends/add
-DELETE /api/friends/{userHandle}/remove/{friendHandle}
-GET /api/friends/{handle}
-GET /api/friends/{handle}/leaderboard
-GET /api/friends/{handle}/unsolved-by-me
-GET /api/friends/{handle}/streak-compare
-GET /api/friends/{handle}/contest-overlap/{contestId}
+- POST /api/friends/add
+- DELETE /api/friends/{userHandle}/remove/{friendHandle}
+- GET /api/friends/{handle}
+- GET /api/friends/{handle}/leaderboard
+- GET /api/friends/{handle}/unsolved-by-me
+- GET /api/friends/{handle}/streak-compare
+- GET /api/friends/{handle}/contest-overlap/{contestId}
 
 
 ---
@@ -159,9 +159,9 @@ GET /api/friends/{handle}/contest-overlap/{contestId}
 ### Insights
 
 
-GET /api/insights/{handle}/weak-topics
-GET /api/insights/{handle}/recommendations
-GET /api/insights/{handle}/upsolve
+- GET /api/insights/{handle}/weak-topics
+- GET /api/insights/{handle}/recommendations
+- GET /api/insights/{handle}/upsolve
 
 ### AI Analysis
 
