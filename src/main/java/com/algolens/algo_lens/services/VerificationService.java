@@ -26,18 +26,17 @@ public class VerificationService {
 
     public void generateAndSendOtp(User user, String phoneNumber) {
         String otp = String.format("%06d", new Random().nextInt(999999));
-        
-        // Store in Redis
+
         redisTemplate.opsForValue().set(OTP_PREFIX + user.getEmail(), otp, OTP_TTL_MINUTES, TimeUnit.MINUTES);
 
-        // Update phone number temporarily (we verify it in the next step)
+
         user.setPhoneNumber(phoneNumber);
         userRepository.save(user);
 
-        // Send via Twilio
+
         twilioService.sendSms(phoneNumber, "Your AlgoLens verification code is: " + otp);
 
-        // Also send via Email just in case Twilio SMS is slow
+
         emailService.sendPhoneVerificationOtpEmail(user.getEmail(), otp, OTP_TTL_MINUTES);
         
         log.info("Sent OTP for user: {}", user.getEmail());

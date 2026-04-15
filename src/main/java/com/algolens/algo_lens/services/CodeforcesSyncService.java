@@ -21,7 +21,6 @@ public class CodeforcesSyncService {
     private final ContestRepository contestRepository;
     private final CodeforcesApiClient codeforcesApiClient;
 
-    // Run every 1 hour (3600000 ms)
     @Scheduled(fixedRate = 3600000)
     public void syncContests() {
         log.info("Starting Codeforces Contests Synchronization...");
@@ -31,7 +30,7 @@ public class CodeforcesSyncService {
             if (response != null && "OK".equals(response.getStatus()) && response.getResult() != null) {
                 List<Contest> contestsToSave = new ArrayList<>();
                 for (CodeforcesContestItemDTO dto : response.getResult()) {
-                    // Only process BEFORE phase contests for notifications
+
                     if ("BEFORE".equals(dto.getPhase()) && dto.getStartTimeSeconds() > 0) {
                         Contest contest = contestRepository.findByCodeforcesId(dto.getId())
                                 .orElse(new Contest());

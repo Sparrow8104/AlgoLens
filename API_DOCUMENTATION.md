@@ -16,7 +16,9 @@
 6. [Friend Endpoints](#friend-endpoints)
 7. [Insight Endpoints](#insight-endpoints)
 8. [Analysis Endpoints](#analysis-endpoints)
-9. [Notes for Frontend Developers](#notes-for-frontend-developers)
+9. [Verification Endpoints](#verification-endpoints)
+10. [System Architecture & Core Business Flows](#system-architecture--core-business-flows)
+11. [Notes for Frontend Developers](#notes-for-frontend-developers)
 
 ---
 
@@ -1405,6 +1407,720 @@ AI-powered analysis of unsolved problems from recent contests with actionable ti
 
 ---
 
+## Verification Endpoints
+
+### Send Phone Verification OTP
+
+**Method:** POST  
+**URL:** `/verification/send-otp`
+
+**Description:**  
+Request OTP for phone number verification. User will receive SMS and email with 6-digit code. OTP expires in 5 minutes.
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json",
+  "Authorization": "Bearer <access_token>"
+}
+```
+
+**Request Body:**
+```json
+{
+  "phoneNumber": "+14155552671"
+}
+```
+
+**Success Response (200 OK):**
+```
+"OTP sent successfully to phone and email."
+```
+
+**Error Response (401 Unauthorized):**
+```json
+{
+  "timestamp": "2026-04-15T10:00:00",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "Invalid or missing authentication token",
+  "path": "/api/verification/send-otp"
+}
+```
+
+**Notes:**
+- Phone number should be in international format (e.g., +1-555-266-7123)
+- OTP valid for 5 minutes only
+- User receives SMS and backup email simultaneously
+- Can resend OTP after previous expires
+
+---
+
+### Verify Phone Number via OTP
+
+**Method:** POST  
+**URL:** `/verification/verify-otp`
+
+**Description:**  
+Verify phone number by submitting OTP received via SMS.
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json",
+  "Authorization": "Bearer <access_token>"
+}
+```
+
+**Request Body:**
+```json
+{
+  "otp": "123456"
+}
+```
+
+**Success Response (200 OK):**
+```
+"Phone number successfully verified."
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "timestamp": "2026-04-15T10:05:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Invalid or expired OTP.",
+  "path": "/api/verification/verify-otp"
+}
+```
+
+**Validation Rules:**
+- `otp`: Required, exactly 6 digits
+- Must be submitted within 5 minutes of sending
+
+**Notes:**
+- After verification, user receives contest SMS alerts and voice calls
+- `NotificationDispatcherService` checks `phoneVerified=true` before sending SMS/calls
+- OTP stored in Redis with TTL, automatically expires
+
+---
+
+## System Architecture & Core Business Flows
+
+### System Overview
+
+**AlgoLens** is a comprehensive Codeforces companion application designed to help competitive programmers track progress, analyze performance, compare with friends, and receive AI-powered insights. The system integrates multiple services:
+
+- **Authentication & Security:** JWT-based auth with email verification, password reset, and phone verification via OTP
+- **Codeforces Integration:** Real-time syncing of contests, problems, user profiles, and submission data
+- **Notifications:** Email and SMS/voice alerts for upcoming contests via Twilio integration
+- **AI Analysis:** Groq-powered analysis of unsolved problems with personalized recommendations
+- **Friend Comparison:** Competitive analytics against friends with leaderboards and streak tracking
+
+---
+
+### Core Business Flows
+
+#### Flow 1: User Registration & Email Verification
+
+**Purpose:** Register a new user and verify their email address before granting API access
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `POST /auth/register` with name, email, password
+2. **Service Layer (AuthService):**
+   - Email rate limiting check (max 5 requests/minute per email)
+   - Hash email and check if user already exists
+   - Create `PendingRegistration` record with hashed verification token (UUID)
+   - Set token expiry to 24 hours
+3. **Validation:**
+   - Name: 2-100 characters, required
+   - Email: Valid format, must be unique
+   - Password: Minimum 8 characters, should be strong
+4. **Database Operations:**
+   - Insert into `pending_registration` table with encrypted password hash
+5. **Response Returned:** `"Registration successful. Please check your email to verify your account"`
+6. **EmailService Triggered:**
+   - Sends verification link: `{baseUrl}/api/auth/verify-email?token={rawToken}`
+7. **Frontend Action:**
+   - Store email temporarily
+   - Redirect to verification page or show verification pending message
+   - User clicks email link (frontend reads token from URL query param)
+
+**Token Verification Step:**
+
+8. **Frontend calls:** `GET /auth/verify-email?token=xyz-token`
+9. **Service Layer (AuthService):**
+   - Hash token and find matching `PendingRegistration`
+   - Check token expiry (24-hour TTL)
+   - Create actual `User` record with `emailVerified=true`
+   - Delete `PendingRegistration` record
+10. **Response:** `"Email verified successfully. You can now log in."`
+11. **Frontend Action:** Redirect to login page
+
+**Flow Diagram (Textual):**
+```
+User → POST /auth/register 
+  ↓ (Validate, check duplicate) 
+  → EmailService.sendEmailVerification() 
+  ↓
+User clicks email link → GET /auth/verify-email?token=xyz 
+  ↓ (Hash token, verify) 
+  → Create User entity 
+  ↓
+Success → Redirect to login
+```
+
+---
+
+#### Flow 2: User Login & Authentication
+
+**Purpose:** Authenticate user and provide JWT tokens for API access
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `POST /auth/login` with email, password (optional: X-Device-Id header)
+2. **Service Layer (AuthService):**
+   - Check login attempt counter (max 5 failures before 15-minute block) via `LoginAttemptService`
+   - Authenticate using Spring Security with email + password
+   - Load user from database
+   - Check if email is verified (403 if not)
+3. **Validation:**
+   - Email format valid, password minimum 8 characters
+   - Account must be email-verified
+4. **Token Generation (JwtService):**
+   - Generate **Access Token** (1-hour expiry)
+   - Generate **Refresh Token** (7-day expiry)
+   - Store refresh token in `refresh_tokens` table with device info
+5. **Response Returned:**
+   ```json
+   {
+     "accessToken": "eyJhbGci...",
+     "refreshToken": "eyJhbGci..."
+   }
+   ```
+6. **Frontend Action:**
+   - Store accessToken in session storage (expires with browser session)
+   - Store refreshToken in httpOnly secure cookie or local storage
+   - Store user email/ID locally for context
+   - Clear any login failure counters
+
+**Flow Diagram (Textual):**
+```
+User → POST /auth/login
+  ↓ (Check IP rate limit, authenticate)
+  → Generate JWT tokens
+  ↓ (Access: 1hr, Refresh: 7day)
+  → Store in refresh_tokens table
+  ↓
+Return tokens → Frontend stores securely
+```
+
+---
+
+#### Flow 3: Phone Verification & OTP
+
+**Purpose:** Allow users to verify phone numbers for SMS/voice contest alerts
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `POST /api/verification/send-otp` (authenticated)
+   ```json
+   {
+     "phoneNumber": "+14155552671"
+   }
+   ```
+2. **Service Layer (VerificationService):**
+   - Generate 6-digit OTP
+   - Store OTP in Redis with 5-minute TTL
+   - Update user's `phoneNumber` field in database
+3. **TwilioService Triggered:**
+   - Sends SMS: `"Your AlgoLens verification code is: 123456"`
+4. **EmailService Triggered:**
+   - Sends backup email with OTP code
+5. **Response:** `"OTP sent successfully to phone and email."`
+6. **Frontend Action:**
+   - Show OTP input form
+   - Start 5-minute countdown timer
+   - Allow "Resend OTP" after countdown
+
+**OTP Verification Step:**
+
+7. **Frontend calls:** `POST /api/verification/verify-otp` (authenticated)
+   ```json
+   {
+     "otp": "123456"
+   }
+   ```
+8. **Service Layer (VerificationService):**
+   - Retrieve OTP from Redis using user's email
+   - Compare with submitted OTP
+   - If valid: Set `phoneVerified=true`, delete OTP from Redis
+   - If invalid: Return 400 error
+9. **Response:** `"Phone number successfully verified."`
+10. **Frontend Action:**
+   - Show success message
+   - Enable contest notification preferences
+
+**Downstream Effect:**
+- `NotificationDispatcherService` now sends SMS + voice alerts to this user for upcoming contests
+
+**Flow Diagram (Textual):**
+```
+User → POST /api/verification/send-otp
+  ↓ (Generate OTP)
+  → Store in Redis (5-min TTL)
+  → TwilioService.sendSms()
+  → EmailService.sendOtpEmail()
+  ↓
+User → POST /api/verification/verify-otp
+  ↓ (Hash check, update phoneVerified=true)
+  → Delete OTP from Redis
+  ↓
+Success → Enable notifications
+```
+
+---
+
+#### Flow 4: Password Reset (Forgot Password)
+
+**Purpose:** Securely reset user password via email and OTP verification
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `POST /auth/forgot-password`
+   ```json
+   {
+     "email": "user@example.com"
+   }
+   ```
+2. **Service Layer (PasswordResetService):**
+   - Check email rate limit (5 requests/min)
+   - Find user by email
+   - If user exists AND email verified:
+     - Generate secure JWT reset token (15-minute expiry)
+     - Generate OTP (6 digits, 5-minute expiry)
+     - Store in `password_reset_tokens` table with token hash, OTP hash, attempts counter
+3. **Email Sent:** Contains reset link with JWT token
+4. **Response:** `"If that email is registered, a password reset link has been sent."` (generic, for security)
+5. **Frontend Action:** User clicks email link with token parameter
+
+**Verify Reset Token Step:**
+
+6. **Frontend calls:** `POST /auth/verify-reset-token`
+   ```json
+   {
+     "token": "eyJhbGci..."
+   }
+   ```
+7. **Service Layer (PasswordResetService):**
+   - Parse JWT token
+   - Verify token integrity using HMAC-SHA256
+   - Check token hasn't been used before
+   - Check token expiry
+   - Generate new OTP, set 5-minute TTL
+   - Send OTP via email
+   - Set secure HTTP-only cookie `reset_session` with JTI (JWT ID)
+8. **Response:** Generic success (HTTP 200)
+9. **Frontend Action:** Show OTP input screen, start 5-min timer
+
+**Reset Password Step:**
+
+10. **Frontend calls:** `POST /auth/reset-password`
+    ```json
+    {
+      "otp": "123456",
+      "newPassword": "NewSecurePassword@123"
+    }
+    ```
+11. **Service Layer (PasswordResetService):**
+    - Read `reset_session` cookie (JTI)
+    - Look up reset token by JTI
+    - Increment OTP attempts counter
+    - Check max 5 attempts not exceeded
+    - Verify OTP hasn't expired
+    - Compare OTP with stored hash (uses PasswordEncoder)
+    - Check new password differs from current password
+    - Encode and save new password
+    - Mark token as used
+    - Delete ALL refresh tokens for this user (forces re-login everywhere)
+    - Expire session cookie
+12. **Response:** `"Password reset successfully. Please log in with your new password."`
+13. **Frontend Action:** Clear all stored tokens, redirect to login
+
+**Flow Diagram (Textual):**
+```
+User → POST /auth/forgot-password
+  ↓ (Rate limit check)
+  → Generate JWT reset token (15 min)
+  → Generate OTP (5 min)
+  → Email sent with reset link
+  ↓
+User clicks link → POST /auth/verify-reset-token
+  ↓ (Verify JWT, integrity check, check used)
+  → Generate new OTP
+  → Set reset_session cookie
+  → Send OTP email
+  ↓
+User submits OTP → POST /auth/reset-password
+  ↓ (OTP verify, increment attempts)
+  → Encode new password
+  → Invalidate all refresh tokens (logout everywhere)
+  ↓
+Success → User must re-login
+```
+
+---
+
+#### Flow 5: Codeforces Data Synchronization (Background)
+
+**Purpose:** Keep contest data fresh and notify users of upcoming contests
+
+**Scheduled Execution (Every hour):**
+
+1. **CodeforcesSyncService** (runs on fixed schedule: 3600000ms = 1 hour)
+   - Call `CodeforcesApiClient.getContests()`
+   - Fetch all contests from Codeforces API
+   - Filter for contests in "BEFORE" phase (not started yet)
+2. **Database Operations:**
+   - For each contest: Create or update `Contest` record with:
+     - Codeforces contest ID
+     - Contest name
+     - Start time (Unix timestamp in seconds)
+     - Contest type (CF, ICPC, etc.)
+     - Phase (BEFORE, RUNNING, FINISHED)
+   - Batch save all contests to database
+3. **Logging:** Log number of contests synced
+
+**Contest Notification Dispatch (Every minute):**
+
+4. **NotificationDispatcherService** (runs cron: every minute)
+   - Current time in UTC seconds
+   - Find contests starting between NOW+270s and NOW+330s (5-minute window)
+   - Get all users where:
+     - Email verified = true
+     - Notify before contest = true (user preference)
+5. **For each eligible user & contest:**
+   - **EmailService:** Send contest reminder email
+   - **TwilioService:** Send SMS if phone verified
+   - **TwilioService:** Make voice call with contest message if phone verified
+6. **Logging:** Log dispatch for each contest
+
+**No Frontend Action:** This is automatic background process
+
+**Flow Diagram (Textual):**
+```
+[Hourly] CodeforcesSyncService.syncContests()
+  ↓ (Call Codeforces API)
+  → Fetch all contests
+  → Filter BEFORE phase
+  → Batch insert/update
+  ↓
+[Every Minute] NotificationDispatcherService.dispatchNotifications()
+  ↓ (Find contests in 5-min window)
+  → Load eligible users (email verified, opted-in)
+  → For each user:
+    → EmailService.sendContestNotificationEmail()
+    → TwilioService.sendSms() (if phone verified)
+    → TwilioService.makeAgenticCall() (if phone verified)
+```
+
+---
+
+#### Flow 6: Fetching User Profile & Building Dashboard
+
+**Purpose:** Display Codeforces user stats on dashboard
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `GET /users/{handle}/profile` (authenticated)
+   - Path parameter: handle = Codeforces username (e.g., "tourist")
+2. **Service Layer (UserController → UserService):**
+   - Call `CodeforcesApiClient.getUserInfo(handle)`
+   - Cache result for 5 minutes (Redis)
+   - Return user profile data
+3. **Response Returned:**
+   ```json
+   {
+     "handle": "tourist",
+     "rating": 3950,
+     "maxRating": 3957,
+     "rank": "International Master",
+     "problemsSolved": 2847,
+     "contestsParticipated": 450,
+     "streakDays": 127,
+     "lastActiveDate": "2026-04-13",
+     "avatar": "https://codeforces.com/avatar/tourist.jpg"
+   }
+   ```
+4. **Frontend Action:** Display profile card with all stats
+
+**Get Contest History:**
+
+5. **Frontend calls:** `GET /users/{handle}/contest-history` (authenticated)
+6. **Service Layer:** Fetch all contests user participated in with rating changes
+7. **Response:** Array of contest records with rating deltas
+8. **Frontend Action:** Display as list or chart
+
+**Get Rating Graph Data:**
+
+9. **Frontend calls:** `GET /users/{handle}/rating-graph` (authenticated)
+10. **Response:** Array of data points (contestId, rating, date) for plotting
+11. **Frontend Action:** Plot line chart showing rating progression
+
+**Get Submission Stats:**
+
+12. **Frontend calls:** `GET /users/{handle}/submission-stats` (authenticated)
+13. **Response:** Total submissions, solved problems, verdict breakdown
+14. **Frontend Action:** Display as progress bars or pie chart
+
+**Flow Diagram (Textual):**
+```
+Frontend loads dashboard
+  ↓
+GET /users/{handle}/profile
+  → [Cache 5 min] CodeforcesApiClient
+  → Display profile card
+  ↓
+GET /users/{handle}/rating-graph
+  → Plot rating chart
+  ↓
+GET /users/{handle}/submission-stats
+  → Display verdict breakdown
+  ↓
+GET /users/{handle}/contest-history
+  → Show recent contests table
+```
+
+---
+
+#### Flow 7: Adding Friends & Building Leaderboard
+
+**Purpose:** Track and compare with competitive friends
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `POST /friends/add` (authenticated)
+   ```json
+   {
+     "userHandle": "myhandle",
+     "friendHandle": "tourist"
+   }
+   ```
+2. **Service Layer (FriendController → FriendService):**
+   - Validate both handles exist on Codeforces
+   - Check if friendship already exists (409 if duplicate)
+   - Create `Friend` relationship record
+3. **Response:** `"Friend added successfully"`
+4. **Frontend Action:** Refresh friends list, show success toast
+
+**Get Friends List & Leaderboard:**
+
+5. **Frontend calls:** `GET /friends/{handle}` (authenticated)
+6. **Response:** Array of friends with current ratings
+7. **Frontend calls:** `GET /friends/{handle}/leaderboard` (authenticated)
+8. **Service Layer:**
+   - Get user's Codeforces profile
+   - Get all friends' profiles
+   - Sort by rating descending
+   - Assign ranks
+9. **Response:** Ranked leaderboard with user in position
+10. **Frontend Action:** Display leaderboard table with your position highlighted
+
+**Get Unsolved Problems by Friends:**
+
+11. **Frontend calls:** `GET /friends/{handle}/unsolved-by-me` (authenticated)
+12. **Service Layer:**
+    - Get problems solved by each friend
+    - Get problems solved by you
+    - Find problems friends solved but you haven't
+    - Group by difficulty/tags
+13. **Response:** Array of problems with friend names who solved each
+14. **Frontend Action:** Display practice suggestions with "Solved by:" badges
+
+**Compare Streaks:**
+
+15. **Frontend calls:** `GET /friends/{handle}/streak-compare` (authenticated)
+16. **Response:** All friends sorted by current streak (consecutive days with submissions)
+17. **Frontend Action:** Display streak comparison, show who's leading
+
+**Get Contest Overlap Results:**
+
+18. **Frontend calls:** `GET /friends/{handle}/contest-overlap/{contestId}` (authenticated)
+19. **Response:** All friends' results in that specific contest (rank, rating change)
+20. **Frontend Action:** Show who performed best in that contest
+
+**Remove Friend:**
+
+21. **Frontend calls:** `DELETE /friends/{userHandle}/remove/{friendHandle}` (authenticated)
+22. **Response:** `"Friend removed successfully"`
+23. **Frontend Action:** Update friends list
+
+**Flow Diagram (Textual):**
+```
+User → POST /friends/add (friendHandle=tourist)
+  ↓ (Validate handles, check duplicate)
+  → Create Friend relationship
+  ↓
+GET /friends/{handle}
+  → Display all friends
+  ↓
+GET /friends/{handle}/leaderboard
+  → Sort by rating
+  → Display ranked leaderboard
+  ↓
+GET /friends/{handle}/unsolved-by-me
+  → Show practice suggestions
+  ↓
+GET /friends/{handle}/streak-compare
+  → Display streak competition
+```
+
+---
+
+#### Flow 8: AI-Powered Analysis of Unsolved Problems
+
+**Purpose:** Get AI-generated insights on why unsolved problems are difficult
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `GET /analysis/upsolve/{handle}` (authenticated)
+   - handle = Codeforces username
+2. **Service Layer (AnalysisController → AnalysisService):**
+   - Get recent contests user participated in
+   - Identify problems with non-AC (non-accepted) verdicts
+   - Collect problem metadata (name, tags, rating, submission verdict)
+   - Call `GroqClient.analyzeUpsolveProblems(problemsList)`
+3. **Groq AI Processing:**
+   - Sends prompt to Groq AI API with problem details
+   - Receives analysis for each problem with:
+     - Likely issue (why the approach failed)
+     - Concept to study (algorithm/data structure to learn)
+     - Actionable tip (specific debugging advice)
+4. **Cache:** Result cached for 1 hour in Redis
+5. **Response Returned:**
+   ```json
+   {
+     "problemAnalyses": [
+       {
+         "contestId": 1865,
+         "problemIndex": "D",
+         "problemName": "Yet Another Problem",
+         "likelyIssue": "Implementation complexity leading to off-by-one errors in indexing logic",
+         "conceptToStudy": "Careful boundary handling in iterative approaches and segment trees",
+         "actionableTip": "Use 0-based indexing consistently and add assertions for boundary conditions"
+       }
+     ],
+     "overallRecommendation": "Focus on mastering Binary Search and Divide & Conquer techniques. Practice problems in the 2600-2800 range specifically targeting these topics. Your implementations are correct but need optimization."
+   }
+   ```
+6. **Frontend Action:**
+   - Display each problem's analysis with styled cards
+   - Highlight overall recommendation
+   - Add links to problem editorials and relevant tutorials
+
+**Flow Diagram (Textual):**
+```
+User → GET /analysis/upsolve/{handle}
+  ↓ (Check Redis cache)
+  → Fetch recent contests
+  → Get unsolved problems (non-AC verdicts)
+  → GroqClient.analyzeUpsolveProblems()
+  ↓ (Call Groq AI API)
+  → Receive AI analysis
+  → Cache for 1 hour
+  ↓
+Display insights → Frontend renders analysis cards
+```
+
+---
+
+#### Flow 9: Problem Recommendations & Weak Topics
+
+**Purpose:** Suggest problems to practice based on weak areas
+
+**Step-by-step Execution:**
+
+1. **Frontend calls:** `GET /insights/{handle}/weak-topics` (authenticated)
+2. **Service Layer (InsightService):**
+   - Analyze user's submission history
+   - Group by problem tags (e.g., "binary search", "DP", "graphs")
+   - Calculate AC rate per tag (solved / attempts)
+   - Sort by acceptance rate (ascending)
+   - Filter topics with < 40% AC rate
+3. **Response Returned:**
+   ```json
+   [
+     {
+       "tag": "divide and conquer",
+       "totalAttempts": 23,
+       "solvedCount": 4,
+       "unsolvedCount": 19,
+       "acRate": 17.4
+     }
+   ]
+   ```
+4. **Frontend Action:** Display weak topics sorted by difficulty level
+
+**Get Problem Recommendations:**
+
+5. **Frontend calls:** `GET /insights/{handle}/recommendations` (authenticated)
+6. **Service Layer:**
+   - Identify weak topics (from above)
+   - Search Codeforces for problems with those tags
+   - Sort by rating difficulty (ascending)
+   - Return 10-20 practice problems
+7. **Response:** Array of problems with tags matching weak topics
+8. **Frontend Action:** Display as practice queue with difficulty badges
+
+**Get Upsolve Opportunities:**
+
+9. **Frontend calls:** `GET /insights/{handle}/upsolve` (authenticated)
+10. **Service Layer:**
+    - Get recent contests (last 7-14 days)
+    - Find problems with non-AC verdicts
+    - Group by contest ID
+    - Include problem metadata and best verdict achieved
+11. **Response:**
+    ```json
+    {
+      "1865": [
+        {
+          "contestId": 1865,
+          "index": "D",
+          "name": "Yet Another Problem",
+          "rating": 2800,
+          "tags": ["binary search", "greedy"],
+          "bestVerdict": "WRONG_ANSWER",
+          "url": "https://codeforces.com/contest/1865/problem/D"
+        }
+      ]
+    }
+    ```
+12. **Frontend Action:** Display problems grouped by contest, link directly to problem
+
+**Flow Diagram (Textual):**
+```
+GET /insights/{handle}/weak-topics
+  → Analyze submissions by tag
+  → Calculate AC rate per tag
+  → Filter AC rate < 40%
+  ↓
+GET /insights/{handle}/recommendations
+  → Search problems matching weak topics
+  → Sort by difficulty
+  → Display practice queue
+  ↓
+GET /insights/{handle}/upsolve
+  → Get recent contests (7-14 days)
+  → Find non-AC verdicts
+  → Group by contest ID
+  → Display upsolve opportunities
+```
+
+---
+
 ## Notes for Frontend Developers
 
 ### Authentication Flow
@@ -1422,7 +2138,6 @@ AI-powered analysis of unsolved problems from recent contests with actionable ti
 4. Store Tokens
    - accessToken: Session storage (expires 1 hour)
    - refreshToken: Secure cookie or local storage
-   ↓
 5. API Requests
    All requests include: Authorization: Bearer <accessToken>
    ↓
@@ -1610,4 +2325,520 @@ For issues or questions:
 4. Check rate limiting (wait and retry)
 5. Ensure Codeforces handle exists
 
+---
 
+## Frontend Integration Guide (Critical Implementation Path)
+
+### Recommended Implementation Order
+
+Follow this exact sequence to implement a fully-functional frontend:
+
+**Phase 1: Authentication (Must Complete First)**
+1. Implement registration form with email, name, password validation
+2. Implement email verification page (reads token from URL query params)
+3. Implement login form with email/password
+4. Store tokens securely (access token in sessionStorage, refresh token in httpOnly cookie)
+5. Implement token refresh logic for 401 responses
+6. Implement logout (single device + all devices)
+
+**Phase 2: Core Dashboard**
+1. Create dashboard page after successful login
+2. Get user's Codeforces handle (either ask in registration or in onboarding)
+3. Fetch and display user profile (`GET /users/{handle}/profile`)
+4. Fetch and display rating graph (`GET /users/{handle}/rating-graph`)
+5. Fetch and display submission stats (`GET /users/{handle}/submission-stats`)
+6. Fetch and display contest history (`GET /users/{handle}/contest-history`)
+
+**Phase 3: Friend Features**
+1. Create "Add Friend" form (input friend's Codeforces handle)
+2. Fetch and display friends list (`GET /friends/{handle}`)
+3. Fetch and display leaderboard (`GET /friends/{handle}/leaderboard`)
+4. Implement friend removal feature (`DELETE /friends/{handle}/remove/{friendHandle}`)
+5. Fetch and display unsolved problems (`GET /friends/{handle}/unsolved-by-me`)
+6. Fetch and display streak comparison (`GET /friends/{handle}/streak-compare`)
+
+**Phase 4: Analytics & Insights**
+1. Create "Insights" page
+2. Fetch weak topics (`GET /insights/{handle}/weak-topics`)
+3. Fetch recommendations (`GET /insights/{handle}/recommendations`)
+4. Fetch upsolve opportunities (`GET /insights/{handle}/upsolve`)
+5. Create "Analysis" page for AI insights (`GET /analysis/upsolve/{handle}`)
+
+**Phase 5: Contest Tracking & Notifications**
+1. Fetch upcoming contests (`GET /contests/upcoming`)
+2. Implement contest notification toggle (requires backend endpoint to save preference)
+3. Implement phone verification flow:
+   - Add phone number input to account settings
+   - Call `POST /verification/send-otp`
+   - Display OTP input modal
+   - Call `POST /verification/verify-otp`
+4. Show confirmed phone verification status
+
+**Phase 6: Advanced Features**
+1. Implement contest comparison (`GET /compare/rating`)
+2. Implement submission comparison (`POST /compare/find`)
+3. Implement contest overlap view (`GET /friends/{handle}/contest-overlap/{contestId}`)
+4. Implement pagination for contests (`GET /contests?page=0&size=20`)
+
+**Phase 7: Account Management**
+1. Implement password reset flow:
+   - "Forgot Password" link on login page
+   - Call `POST /auth/forgot-password`
+   - User receives email, clicks link with token
+   - Call `POST /auth/verify-reset-token`
+   - Show OTP input screen
+   - Call `POST /auth/reset-password`
+2. Implement resend verification email (`POST /auth/resend-verification`)
+
+---
+
+### State Management & Token Handling
+
+**What to Store Locally (After Login):**
+```javascript
+// Session Storage (auto-clears on browser close)
+sessionStorage.setItem('accessToken', response.accessToken);
+
+// Local Storage or HttpOnly Cookie
+localStorage.setItem('refreshToken', response.refreshToken);
+
+// Optional: User context for quick access
+sessionStorage.setItem('userEmail', userEmail);
+sessionStorage.setItem('userHandle', codeforcesHandle);
+```
+
+**Interceptor/Middleware Pattern (Pseudo-code):**
+```javascript
+// Before every API call:
+if (endpoint.requiresAuth) {
+  const token = sessionStorage.getItem('accessToken');
+  headers['Authorization'] = `Bearer ${token}`;
+}
+
+// After response:
+if (response.status === 401) {
+  const newToken = await refreshAccessToken();
+  retryRequest(originalRequest, newToken);
+}
+
+// On logout:
+sessionStorage.removeItem('accessToken');
+localStorage.removeItem('refreshToken');
+sessionStorage.removeItem('userEmail');
+sessionStorage.removeItem('userHandle');
+// Redirect to login
+```
+
+---
+
+### Error Handling Strategy
+
+**Always check response.status before parsing JSON:**
+```javascript
+const handleApiError = async (response) => {
+  if (response.ok) {
+    return response.json();
+  }
+
+  if (response.status === 401) {
+    // Token expired
+    redirectToLogin();
+    return;
+  }
+
+  if (response.status === 429) {
+    // Rate limited
+    showUserMessage("Too many requests. Please wait before retrying.");
+    return;
+  }
+
+  const errorData = await response.json();
+  showUserMessage(errorData.message || "An error occurred");
+  log(errorData);
+};
+```
+
+**User-Friendly Error Messages (Show from API):**
+- DO: Display `error.message` from API response
+- DON'T: Show stack traces or server details
+- DO: Suggest recovery action (e.g., "Email not verified. Click resend.")
+
+---
+
+### Common Frontend Implementation Mistakes to Avoid
+
+**❌ MISTAKE 1: Not Implementing Token Refresh**
+```javascript
+// WRONG - will fail after 1 hour
+fetch('/api/users/profile', {
+  headers: { 'Authorization': `Bearer ${accessToken}` }
+});
+
+// RIGHT - check for 401 and refresh
+if (response.status === 401) {
+  const newAccessToken = await refreshToken();
+  retryRequest(newAccessToken);
+}
+```
+
+**❌ MISTAKE 2: Storing Sensitive Data in localStorage**
+```javascript
+// WRONG - refresh token exposed to XSS
+localStorage.setItem('refreshToken', refreshToken);
+
+// RIGHT - use httpOnly cookie (set by server) or sessionStorage
+// (or implement server-side session management)
+```
+
+**❌ MISTAKE 3: Not Validating Input Before API Call**
+```javascript
+// WRONG - API rejects invalid data
+POST /auth/register
+{ "email": "invalid", "password": "short" }
+
+// RIGHT - validate on frontend first
+if (!email.includes('@')) showError('Invalid email');
+if (password.length < 8) showError('Password too short');
+```
+
+**❌ MISTAKE 4: Calling API on Every Page Load Without Caching**
+```javascript
+// WRONG - hammers backend
+useEffect(() => {
+  fetch('/users/profile').then(...);
+}, []); // Called on every render
+
+// RIGHT - cache and use state
+const [profile, setProfile] = useState(null);
+useEffect(() => {
+  if (!profile) fetch('/users/profile').then(setProfile);
+}, [profile]);
+```
+
+**❌ MISTAKE 5: Not Handling null/undefined Responses**
+```javascript
+// WRONG - crashes if profile is null
+{profile.handle}
+
+// RIGHT - check before rendering
+{profile?.handle || 'Loading...'}
+```
+
+**❌ MISTAKE 6: Making Requests Without Authentication Header**
+```javascript
+// WRONG - 403 Forbidden on protected endpoints
+fetch('/friends/add', { method: 'POST', body: {...} });
+
+// RIGHT - always include auth header for protected routes
+fetch('/friends/add', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({...})
+});
+```
+
+**❌ MISTAKE 7: Not Handling Contest Timestamp Conversion**
+```javascript
+// WRONG - displays raw Unix timestamp
+<p>Contest starts at: {contest.startTimeSeconds}</p>
+
+// RIGHT - convert to readable date
+const date = new Date(contest.startTimeSeconds * 1000);
+<p>Contest starts at: {date.toLocaleString()}</p>
+```
+
+**❌ MISTAKE 8: Ignoring Rate Limit Headers**
+```javascript
+// WRONG - spams requests until 429
+for (let i = 0; i < 100; i++) {
+  fetch('/api/endpoint');
+}
+
+// RIGHT - implement backoff
+let delay = 1000;
+async function makeRequestWithBackoff(url) {
+  const res = await fetch(url);
+  if (res.status === 429) {
+    delay *= 2;
+    await sleep(delay);
+    return makeRequestWithBackoff(url);
+  }
+  return res;
+}
+```
+
+---
+
+### Flow: How Frontend Should Call APIs in Sequence
+
+**User Registration to Dashboard:**
+```
+1. User lands on signup page
+2. User submits: POST /auth/register
+   → Receive: "Registration successful"
+   → Frontend: Show "Check email" message
+
+3. User clicks email link (includes ?token=xyz)
+   → Frontend: POST /auth/verify-email?token=xyz
+   → Receive: "Email verified"
+   → Frontend: Redirect to login
+
+4. User submits login form: POST /auth/login
+   → Receive: { accessToken, refreshToken }
+   → Frontend: Store tokens
+   → Frontend: Redirect to dashboard
+
+5. Dashboard loads, frontend needs to fetch data
+   → GET /users/{handle}/profile
+   → GET /users/{handle}/rating-graph
+   → GET /users/{handle}/submission-stats
+   → GET /users/{handle}/contest-history
+   → All include: Authorization: Bearer <accessToken>
+
+6. Frontend should parallelize these GET requests (not sequential)
+
+7. User goes to Friends page
+   → GET /friends/{handle}
+   → GET /friends/{handle}/leaderboard
+   → GET /friends/{handle}/unsolved-by-me
+   → GET /friends/{handle}/streak-compare
+
+8. User adds a friend
+   → POST /friends/add with { userHandle, friendHandle }
+   → Refresh friends list after success
+```
+
+---
+
+#### Authentication Edge Cases
+
+**Case 1: User Opens App in New Tab**
+- Access token may be expired
+- Frontend should make a test API call
+- If 401, call `POST /auth/refresh`
+- If refresh fails (refresh token expired), redirect to login
+
+**Case 2: User's Refresh Token Expires (7 days)**
+- Next API call returns 401
+- `POST /auth/refresh` also fails
+- Frontend must redirect to login page
+- User must re-authenticate
+
+**Case 3: User Changed Password on Another Device**
+- After password reset, ALL refresh tokens are invalidated
+- User on this device gets 401
+- `POST /auth/refresh` fails
+- Frontend redirects to login
+- User must log in again (security feature)
+
+**Case 4: User Logged Out All Devices**
+- Similar to Case 3
+- All refresh tokens invalidated
+- User on any device must re-login
+
+---
+
+### Phone Verification & Notifications Flow
+
+**After User Verifies Phone Number:**
+```
+1. User goes to Settings → Phone Verification
+2. User enters phone: +14155552671
+3. Frontend: POST /verification/send-otp
+   → Receive: "OTP sent"
+   → Frontend: Show OTP input modal
+
+4. User receives SMS: "Your code is: 123456"
+5. User enters OTP in modal
+6. Frontend: POST /verification/verify-otp with { otp }
+   → Receive: "Phone verified"
+   → Frontend: Update UI to show "✓ Verified"
+
+7. Backend automatically enables notifications
+   → CodeforcesSyncService runs every hour
+   → NotificationDispatcherService runs every minute
+   → When contest starting in 5 minutes:
+     → Backend sends Email ✓
+     → Backend sends SMS (because phoneVerified=true) ✓
+     → Backend makes Voice call (because phoneVerified=true) ✓
+
+NO FURTHER FRONTEND ACTION NEEDED - it's automatic!
+```
+
+---
+
+### Recommended Tech Stack Considerations
+
+**Frontend Framework:**
+- React / Vue / Angular - all work equally well
+- Use TypeScript for better type safety with DTOs
+
+**State Management:**
+- Context API + useReducer for simple apps
+- Redux or Zustand for complex apps
+- TanStack Query (React Query) for server state + caching
+
+**HTTP Client:**
+- Axios with interceptors for auto-refresh logic
+- Fetch API with custom wrapper
+- TanStack Query for automatic caching
+
+**Form Validation:**
+- React Hook Form + Zod (strongly recommended)
+- Formik + Yup (alternative)
+- HTML5 validation as fallback
+
+**Charting Library:**
+- Chart.js / Recharts for rating graphs
+- react-calendar-heatmap for streak visualization
+
+**Authentication Library:**
+- Auth0 (if integrating external auth)
+- Custom JWT logic (already described above)
+- NextAuth.js (if using Next.js)
+
+---
+
+## System Assumptions & Inferred Behavior
+
+### Assumptions Made During Analysis
+
+1. **User Registration Flow**
+   - ASSUMED: `PendingRegistration` table stores incomplete registrations until email is verified
+   - ASSUMED: Token is hashed before storage (SHA256 or similar)
+   - ASSUMED: 24-hour TTL for verification tokens
+
+2. **Authentication & JWT**
+   - ASSUMED: Access tokens stored in memory/sessionStorage (short-lived)
+   - ASSUMED: Refresh tokens stored in secure httpOnly cookies (long-lived)
+   - ASSUMED: JwtService uses HS256 algorithm
+   - ASSUMED: Device ID tracked for multi-device logout support
+
+3. **Password Reset Security**
+   - ASSUMED: Reset tokens are JWT with HMAC-SHA256 integrity check
+   - ASSUMED: OTP stored with `PasswordEncoder` (bcrypt or similar)
+   - ASSUMED: Maximum 5 OTP attempts before forcing new reset request
+   - ASSUMED: Resetting password invalidates ALL refresh tokens (logout everywhere)
+
+4. **Codeforces API Integration**
+   - ASSUMED: `CodeforcesApiClient` wraps official Codeforces API (https://codeforces.com/api/)
+   - ASSUMED: API calls respect Codeforces rate limits (2 req/sec max)
+   - ASSUMED: Contest data is cached for 1 hour to avoid hammering Codeforces
+
+5. **Background Services**
+   - ASSUMED: `CodeforcesSyncService` runs on fixed 1-hour schedule
+   - ASSUMED: `NotificationDispatcherService` runs every minute via cron
+   - ASSUMED: Both services are critical and must be monitored for failures
+
+6. **Notifications via Twilio**
+   - ASSUMED: SMS sent only if `phoneVerified=true` and `phoneNumber` is not null
+   - ASSUMED: Voice calls use Twiml format with text-to-speech
+   - ASSUMED: Both SMS and voice calls are sent for contest alerts (dual notification)
+   - ASSUMED: OTP stored in Redis with 5-minute TTL (auto-expiry)
+
+7. **Groq AI Analysis**
+   - ASSUMED: `GroqClient` calls Groq AI API (https://console.groq.com/)
+   - ASSUMED: Results are cached for 1 hour in Redis
+   - ASSUMED: Analysis takes 5-30 seconds (frontend should show loading spinner)
+   - ASSUMED: Analysis is best-effort (graceful fallback if Groq is down)
+
+8. **Email Service**
+   - ASSUMED: `EmailService` uses Spring Mail (SMTP configuration)
+   - ASSUMED: Verification emails include clickable link with token
+   - ASSUMED: Password reset emails include OTP code
+   - ASSUMED: OTP sent to BOTH email and SMS (redundancy)
+
+9. **Rate Limiting**
+   - ASSUMED: Email operations rate-limited at 5 requests/minute per email
+   - ASSUMED: Login attempts rate-limited at 5 failures before 15-minute IP block
+   - ASSUMED: General endpoints rate-limited at 100 requests/minute per IP
+
+10. **Database Architecture**
+    - ASSUMED: Tables: users, pending_registration, refresh_tokens, password_reset_tokens, friends, contests
+    - ASSUMED: User table has fields: email, password, name, emailVerified, phoneNumber, phoneVerified, etc.
+    - ASSUMED: Contests table synced hourly from Codeforces API
+    - ASSUMED: Friends table stores many-to-many relationships between users
+
+11. **Caching Strategy**
+    - ASSUMED: User profiles cached for 5 minutes
+    - ASSUMED: Contest data cached for 1 hour
+    - ASSUMED: Analysis results cached for 1 hour
+    - ASSUMED: Cache keys include user handle to prevent cross-user contamination
+
+12. **Error Handling Patterns**
+    - ASSUMED: All errors return standard JSON structure with timestamp, status, message
+    - ASSUMED: 400 = validation error (request body malformed)
+    - ASSUMED: 401 = authentication error (token missing/expired)
+    - ASSUMED: 403 = authorization error (user lacks permission)
+    - ASSUMED: 404 = resource not found
+    - ASSUMED: 409 = conflict (duplicate resource)
+    - ASSUMED: 422 = unprocessable entity (business logic error)
+
+### Inferred Business Logic
+
+**User Lifecycle:**
+1. Register → Pending Registration
+2. Verify Email → Active User
+3. Login → Get Tokens
+4. Token Expiry → Refresh Tokens
+5. Password Reset → Invalidate ALL Tokens
+6. Logout All → Clear All Tokens
+
+**Friend Relationship Constraints:**
+- Cannot add yourself as friend
+- Cannot add duplicate friend (409 error)
+- Removing friend requires both userHandle and friendHandle
+
+**Contest Notification Rules:**
+- Only sent to users with emailVerified=true
+- Only sent to users with notifyBeforeContest=true (user preference)
+- Only sent 5 minutes before contest starts (270-330 second window)
+- SMS/voice only sent if phoneVerified=true
+
+**Streak Calculation:**
+- Consecutive days with at least one accepted submission
+- Resets if no submission for 24+ hours
+- Last submission date tracked to determine current streak
+
+**Weak Topics Analysis:**
+- AC rate = solved / total attempts (percentage)
+- Topics with AC rate < 40% marked as weak
+- Sorted by AC rate (lowest first)
+
+**Upsolve Analysis:**
+- Includes problems from contests in last 7-14 days
+- Only problems with non-AC verdicts (WRONG_ANSWER, TLE, etc.)
+- Grouped by contest ID for organization
+
+### Potential Production Considerations (Not Implemented)
+
+1. **Metrics & Monitoring**
+   - No mention of logging library (should use SLF4J + Logback)
+   - No metrics collection (should use Micrometer + Prometheus)
+
+2. **API Security**
+   - No mention of CORS configuration
+   - No mention of CSRF protection
+   - No mention of SQL injection prevention (should use parameterized queries)
+   - No mention of input sanitization
+
+3. **Database**
+   - No mention of database backup strategy
+   - No mention of connection pooling limits
+   - No mention of query optimization / indexing strategy
+
+4. **External Services**
+   - Twilio integration assumes account already set up
+   - Groq AI integration assumes API key configured
+   - EmailService assumes SMTP credentials configured
+   - No circuit breaker for Groq AI failures
+
+5. **Deployment**
+   - No mention of containerization (Docker)
+   - No mention of Kubernetes deployment
+   - No mention of environment-specific configuration
+
+---

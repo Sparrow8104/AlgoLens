@@ -48,7 +48,7 @@ public class TwilioService {
 
     public void makeAgenticCall(String toPhoneNumber, String speechText) {
         try {
-            // Using TwiML <Say> to read out text. This is a basic agentic Text-To-Speech response.
+
             String twimlStr = "<Response><Say>" + speechText + "</Say></Response>";
             Call call = Call.creator(
                     new PhoneNumber(toPhoneNumber),

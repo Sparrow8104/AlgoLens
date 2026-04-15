@@ -27,8 +27,7 @@ public class NotificationDispatcherService {
     @Scheduled(cron = "0 * * * * *")
     public void dispatchNotifications() {
         long currentSeconds = Instant.now().getEpochSecond();
-        // We look for contests starting in about 5 minutes (300 seconds).
-        // Since this runs every 60s, a window from +270s to +330s ensures we catch the contest ONCE for the upcoming 5th minute.
+
         long startWindow = currentSeconds + 270;
         long endWindow = currentSeconds + 330;
 
@@ -43,11 +42,10 @@ public class NotificationDispatcherService {
                     
                     String message = String.format("Hello %s, your Codeforces contest '%s' starts in 5 minutes! Good luck!", 
                             user.getName(), contest.getName());
-                            
-                    // Send Email universally based on notifyBeforeContest flag
+
                     emailService.sendContestNotificationEmail(user.getEmail(), user.getName(), contest.getName());
 
-                    // Send SMS and Agentic Call ONLY if phone verified
+
                     if (user.isPhoneVerified() && user.getPhoneNumber() != null && !user.getPhoneNumber().isEmpty()) {
                         twilioService.sendSms(user.getPhoneNumber(), message);
                         twilioService.makeAgenticCall(user.getPhoneNumber(), message);
