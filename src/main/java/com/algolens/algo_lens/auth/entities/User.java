@@ -46,6 +46,15 @@ public class User implements UserDetails {
     private List<RefreshToken> refreshToken;
 
 
+    @Column(unique = true)
+    private String phoneNumber;
+
+    @Column(nullable = false)
+    private boolean isPhoneVerified = false;
+
+    @Column(nullable = false)
+    private boolean notifyBeforeContest = true;
+
     @Column(nullable = false)
     public boolean emailVerified=false;
 

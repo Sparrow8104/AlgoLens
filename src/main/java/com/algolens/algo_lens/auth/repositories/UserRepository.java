@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String username);
+
+    java.util.List<User> findByEmailVerifiedTrueAndNotifyBeforeContestTrue();
 }

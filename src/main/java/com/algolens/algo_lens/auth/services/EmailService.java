@@ -86,5 +86,41 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    public void sendPhoneVerificationOtpEmail(String toEmail, String otp, long expiryMinutes) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(toEmail);
+        message.setSubject("AlgoLens — Phone Verification OTP");
+        message.setText("""
+                Hi,
+ 
+                Your AlgoLens phone verification code is:
+ 
+                    %s
+ 
+                This code expires in %d minutes. Do not share it with anyone.
+ 
+                — The AlgoLens Team
+                """.formatted(otp, expiryMinutes));
+
+        mailSender.send(message);
+    }
+
+    public void sendContestNotificationEmail(String toEmail, String name, String contestName) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(toEmail);
+        message.setSubject("Codeforces Contest Starting Soon!");
+        message.setText("""
+                Hello %s,
+ 
+                Your Codeforces contest '%s' starts in exactly 5 minutes!
+                Good luck!
+ 
+                — The AlgoLens Team
+                """.formatted(name, contestName));
+
+        mailSender.send(message);
+    }
 
 }
