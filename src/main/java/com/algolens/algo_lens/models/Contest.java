@@ -25,6 +25,9 @@ public class Contest {
     @Column(nullable = false)
     private Long startTimeSeconds;
 
+    @Column(nullable = false)
+    private boolean isActive = true;
+
     private String type;
 
     private String phase;

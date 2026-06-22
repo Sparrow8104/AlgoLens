@@ -19,6 +19,6 @@ public class CodeforcesContestItemDTO implements Serializable {
     private String phase;
     private boolean frozen;
     private int durationSeconds;
-    private int startTimeSeconds;
+    private long startTimeSeconds;
     private int relativeTimeSeconds;
 }

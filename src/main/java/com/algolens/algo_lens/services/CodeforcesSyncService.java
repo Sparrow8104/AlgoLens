@@ -9,9 +9,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,38 +24,79 @@ public class CodeforcesSyncService {
     private final CodeforcesApiClient codeforcesApiClient;
 
     @Scheduled(fixedRate = 3600000)
-    public void syncContests() {
+    @Transactional(rollbackFor = Exception.class)
+    public void syncContestsWithStatusUpdate() {
         log.info("Starting Codeforces Contests Synchronization...");
-        try {
-            CodeforcesContestResponseDTO response = codeforcesApiClient.getContests();
 
-            if (response != null && "OK".equals(response.getStatus()) && response.getResult() != null) {
-                List<Contest> contestsToSave = new ArrayList<>();
-                for (CodeforcesContestItemDTO dto : response.getResult()) {
+        CodeforcesContestResponseDTO response = codeforcesApiClient.getContests();
 
-                    if ("BEFORE".equals(dto.getPhase()) && dto.getStartTimeSeconds() > 0) {
-                        Contest contest = contestRepository.findByCodeforcesId(dto.getId())
-                                .orElse(new Contest());
-
-                        contest.setCodeforcesId(dto.getId());
-                        contest.setName(dto.getName());
-                        contest.setStartTimeSeconds((long) dto.getStartTimeSeconds());
-                        contest.setType(dto.getType());
-                        contest.setPhase(dto.getPhase());
-
-                        contestsToSave.add(contest);
-                    }
-                }
-
-                if (!contestsToSave.isEmpty()) {
-                    contestRepository.saveAll(contestsToSave);
-                    log.info("Successfully synced {} upcoming contests from Codeforces", contestsToSave.size());
-                }
-            } else {
-                log.warn("Failed to fetch properly formatted response from Codeforces API");
-            }
-        } catch (Exception e) {
-            log.error("Error occurred while syncing contests: {}", e.getMessage());
+        if (response == null ||
+                !"OK".equals(response.getStatus()) ||
+                response.getResult() == null) {
+            log.warn("Invalid or empty response from Codeforces API. Skipping sync.");
+            return;
         }
+
+        Map<Integer, Contest> existingContestMap =
+                contestRepository.findAll()
+                        .stream()
+                        .collect(Collectors.toMap(
+                                Contest::getCodeforcesId,
+                                Function.identity()
+                        ));
+
+        List<Contest> contestsToSave = new ArrayList<>();
+        Set<Integer> incomingCodeforcesIds = new HashSet<>();
+
+        for (CodeforcesContestItemDTO dto : response.getResult()) {
+
+            if (dto == null) {
+                log.warn("Encountered null contest entry in API response, skipping.");
+                continue;
+            }
+
+            if ("BEFORE".equals(dto.getPhase()) && dto.getStartTimeSeconds() > 0) {
+                incomingCodeforcesIds.add(dto.getId());
+
+                Contest contest = existingContestMap
+                        .computeIfAbsent(dto.getId(), id -> new Contest());
+
+                contest.setCodeforcesId(dto.getId());
+                contest.setName(dto.getName());
+                contest.setStartTimeSeconds(dto.getStartTimeSeconds());
+                contest.setType(dto.getType());
+                contest.setPhase(dto.getPhase());
+                contest.setActive(true);
+
+                contestsToSave.add(contest);
+            }
+        }
+
+        if (!contestsToSave.isEmpty()) {
+            contestRepository.saveAll(contestsToSave);
+            log.info("Synced {} upcoming contests.", contestsToSave.size());
+        } else {
+            log.info("No upcoming contests found in API response. Nothing saved.");
+        }
+
+        List<Contest> contestsToDeactivate = existingContestMap.values().stream()
+                .filter(Contest::isActive)
+                .filter(contest -> !incomingCodeforcesIds.contains(contest.getCodeforcesId()))
+                .toList();
+
+        if (!contestsToDeactivate.isEmpty()) {
+            contestsToDeactivate.forEach(contest -> contest.setActive(false));
+            contestRepository.saveAll(contestsToDeactivate);
+            log.info("Marked {} contests as inactive.", contestsToDeactivate.size());
+        }
+
+        long thirtyDaysAgo = (System.currentTimeMillis() / 1000) - (30L * 24 * 60 * 60);
+        long deletedCount = contestRepository.deleteByActiveFalseAndStartTimeSecondsLessThan(thirtyDaysAgo);
+
+        if (deletedCount > 0) {
+            log.info("Deleted {} old finished contests (older than 30 days).", deletedCount);
+        }
+
+        log.info("Codeforces sync completed successfully.");
     }
 }
