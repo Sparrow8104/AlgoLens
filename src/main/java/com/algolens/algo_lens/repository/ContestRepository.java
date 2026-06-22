@@ -11,6 +11,9 @@ import java.util.Optional;
 public interface ContestRepository extends JpaRepository<Contest, Long> {
     Optional<Contest> findByCodeforcesId(Integer codeforcesId);
 
-    // Find all contests starting exactly within a specific second range
     List<Contest> findByStartTimeSecondsBetween(Long startInclusive, Long endInclusive);
+
+    List<Contest> findByActiveTrue();
+
+    long deleteByActiveFalseAndStartTimeSecondsLessThan(long timestamp);
 }

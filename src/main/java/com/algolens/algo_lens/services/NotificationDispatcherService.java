@@ -23,7 +23,7 @@ public class NotificationDispatcherService {
     private final TwilioService twilioService;
     private final EmailService emailService;
 
-    // Run every minute
+
     @Scheduled(cron = "0 * * * * *")
     public void dispatchNotifications() {
         long currentSeconds = Instant.now().getEpochSecond();
@@ -31,8 +31,11 @@ public class NotificationDispatcherService {
         long startWindow = currentSeconds + 270;
         long endWindow = currentSeconds + 330;
 
-        List<Contest> upcomingContests = contestRepository.findByStartTimeSecondsBetween(startWindow, endWindow);
-
+        List<Contest> upcomingContests = contestRepository.findByActiveTrue()
+                .stream()
+                .filter(c -> c.getStartTimeSeconds() >= startWindow &&
+                        c.getStartTimeSeconds() <= endWindow)
+                .toList();
         if (!upcomingContests.isEmpty()) {
             List<User> eligibleUsers = userRepository.findByEmailVerifiedTrueAndNotifyBeforeContestTrue();
 
