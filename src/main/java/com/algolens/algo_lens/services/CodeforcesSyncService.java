@@ -91,7 +91,7 @@ public class CodeforcesSyncService {
         }
 
         long thirtyDaysAgo = (System.currentTimeMillis() / 1000) - (30L * 24 * 60 * 60);
-        long deletedCount = contestRepository.deleteByActiveFalseAndStartTimeSecondsLessThan(thirtyDaysAgo);
+        long deletedCount = contestRepository.deleteByIsActiveFalseAndStartTimeSecondsLessThan(thirtyDaysAgo);
 
         if (deletedCount > 0) {
             log.info("Deleted {} old finished contests (older than 30 days).", deletedCount);

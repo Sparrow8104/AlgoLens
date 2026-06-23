@@ -10,6 +10,6 @@ public record UpcomingContestDTO(
         String name,
         String type,
         int durationSeconds,
-        int startTimeSeconds,
+        long startTimeSeconds,
         int relativeTimeSeconds){
 }

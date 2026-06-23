@@ -42,7 +42,8 @@ public class TwilioService {
             ).create();
             log.info("Sent SMS to {}: SID {}", toPhoneNumber, message.getSid());
         } catch (Exception e) {
-            log.error("Failed to send SMS to {}: {}", toPhoneNumber, e.getMessage());
+            log.error("Failed to send SMS to {}", toPhoneNumber, e);
+            throw e;
         }
     }
 

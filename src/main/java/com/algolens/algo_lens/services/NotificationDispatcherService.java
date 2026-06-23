@@ -31,7 +31,7 @@ public class NotificationDispatcherService {
         long startWindow = currentSeconds + 270;
         long endWindow = currentSeconds + 330;
 
-        List<Contest> upcomingContests = contestRepository.findByActiveTrue()
+        List<Contest> upcomingContests = contestRepository.findByIsActiveTrue()
                 .stream()
                 .filter(c -> c.getStartTimeSeconds() >= startWindow &&
                         c.getStartTimeSeconds() <= endWindow)
