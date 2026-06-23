@@ -24,7 +24,9 @@ public class VerificationService {
     private final UserRepository userRepository;
 
     private static final String OTP_PREFIX = "phone_otp:";
+    private static final String OTP_ATTEMPTS_PREFIX = "phone_otp_attempts:";
     private static final long OTP_TTL_MINUTES = 5;
+    private static final int MAX_OTP_ATTEMPTS = 5;
 
     @Transactional
     public void generateAndSendOtp(User user, String phoneNumber) {
@@ -45,6 +47,7 @@ public class VerificationService {
                     OTP_TTL_MINUTES,
                     TimeUnit.MINUTES
             );
+            redisTemplate.delete(OTP_ATTEMPTS_PREFIX + user.getEmail());
             log.debug("OTP stored in Redis for user: {}", user.getEmail());
         } catch (Exception e) {
             log.error("Redis operation failed: {}", e.getMessage(), e);
@@ -98,6 +101,7 @@ public class VerificationService {
         log.debug("Verifying OTP for user: {}", user.getEmail());
 
         String savedOtp;
+        String attemptsKey = OTP_ATTEMPTS_PREFIX + user.getEmail();
         try {
             savedOtp = redisTemplate.opsForValue().get(OTP_PREFIX + user.getEmail());
         } catch (Exception e) {
@@ -110,8 +114,34 @@ public class VerificationService {
             throw new TokenExpiredException("OTP expired or not found. Please request a new OTP.");
         }
 
+        String attemptsStr = redisTemplate.opsForValue().get(attemptsKey);
+        int attempts = attemptsStr == null ? 0 : Integer.parseInt(attemptsStr);
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+            redisTemplate.delete(OTP_PREFIX + user.getEmail());
+            redisTemplate.delete(attemptsKey);
+            log.warn("User {} locked out from OTP verification due to too many attempts", user.getEmail());
+            throw new InvalidTokenException("Too many incorrect attempts. Please request a new verification code.");
+        }
+
         if (!savedOtp.equals(otp)) {
-            log.warn("Invalid OTP attempt for user: {}", user.getEmail());
+            long newAttempts;
+            try {
+                newAttempts = redisTemplate.opsForValue().increment(attemptsKey);
+                if (newAttempts == 1) {
+                    redisTemplate.expire(attemptsKey, OTP_TTL_MINUTES, TimeUnit.MINUTES);
+                }
+            } catch (Exception e) {
+                log.error("Failed to increment OTP attempts in Redis: {}", e.getMessage());
+                newAttempts = attempts + 1;
+            }
+
+            log.warn("Invalid OTP attempt for user: {} (Attempt {}/{})", user.getEmail(), newAttempts, MAX_OTP_ATTEMPTS);
+
+            if (newAttempts >= MAX_OTP_ATTEMPTS) {
+                redisTemplate.delete(OTP_PREFIX + user.getEmail());
+                redisTemplate.delete(attemptsKey);
+                throw new InvalidTokenException("Too many incorrect attempts. Please request a new verification code.");
+            }
             throw new InvalidTokenException("Invalid OTP. Please try again.");
         }
 
@@ -128,7 +158,8 @@ public class VerificationService {
 
         try {
             redisTemplate.delete(OTP_PREFIX + user.getEmail());
-            log.debug("OTP deleted from Redis after successful verification");
+            redisTemplate.delete(attemptsKey);
+            log.debug("OTP and attempt counter deleted from Redis after successful verification");
         } catch (Exception e) {
             log.warn("Failed to delete OTP from Redis (non-critical): {}", e.getMessage());
         }
