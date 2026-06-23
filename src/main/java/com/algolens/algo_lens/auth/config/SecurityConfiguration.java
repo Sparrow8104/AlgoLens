@@ -40,7 +40,9 @@ public class SecurityConfiguration {
             "/api/auth/verify-reset-token",
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/actuator/health"
+            "/actuator/health",
+            "/test-call"
+
     };
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -74,7 +76,7 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:4200"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:*")) ;
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);

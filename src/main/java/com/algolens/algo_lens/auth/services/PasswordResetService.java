@@ -161,7 +161,7 @@ public class PasswordResetService {
             throw new TokenExpiredException("Reset session has expired. Please request a new link.");
         }
 
-        // OTP brute-force protection
+
         if (resetToken.getOtpAttempts() >= OTP_MAX_ATTEMPTS) {
             expireSessionCookie(response);
             passwordResetTokenRepository.delete(resetToken);
@@ -173,7 +173,7 @@ public class PasswordResetService {
             throw new InvalidTokenException("OTP has expired. Please go back and request a new code.");
         }
 
-        // Increment BEFORE checking — prevents a race bypassing the counter
+
         resetToken.setOtpAttempts(resetToken.getOtpAttempts() + 1);
         passwordResetTokenRepository.save(resetToken);
 
@@ -184,7 +184,6 @@ public class PasswordResetService {
 
         User user = resetToken.getUser();
 
-        // Guard against null password (OAuth-only users have no password set)
         if (user.getPassword() != null &&
                 passwordEncoder.matches(request.newPassword(), user.getPassword())) {
             throw new IllegalArgumentException("New password must be different from your current password.");

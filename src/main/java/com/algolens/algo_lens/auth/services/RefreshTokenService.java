@@ -18,6 +18,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -36,11 +37,10 @@ public class RefreshTokenService {
     @Transactional
     public String createRefreshToken(User user,String deviceId,String userAgent,String ip) {
 
-        refreshTokenRepository.findByUserAndDeviceId(user, deviceId)
-                .ifPresent(existing -> {
-                    refreshTokenRepository.deleteByTokenId(existing.getTokenId());
-                    refreshTokenRepository.flush();
-                });
+       Optional<RefreshToken> existing=refreshTokenRepository.findByUserAndDeviceId(user, deviceId);
+        if (existing.isPresent()) {
+            return rotateRefreshToken(existing.get());
+        }
 
         String rawToken = UUID.randomUUID().toString();
         String hashedToken = hashToken(rawToken);
@@ -84,13 +84,24 @@ public class RefreshTokenService {
     public String rotateRefreshToken(RefreshToken oldToken) {
         oldToken.setUsed(true);
         refreshTokenRepository.save(oldToken);
+        refreshTokenRepository.flush();
 
-        return createRefreshToken(
-                oldToken.getUser(),
-                oldToken.getDeviceId(),
-                oldToken.getUserAgent(),
-                oldToken.getIpAddress()
-        );
+        String rawToken = UUID.randomUUID().toString();
+        String hashedToken = hashToken(rawToken);
+
+        RefreshToken newToken = RefreshToken.builder()
+                .refreshToken(hashedToken)
+                .user(oldToken.getUser())
+                .expirationTime(Instant.now().plusSeconds(refreshTokenExpiration))
+                .deviceId(oldToken.getDeviceId())
+                .userAgent(oldToken.getUserAgent())
+                .ipAddress(oldToken.getIpAddress())
+                .createdAt(Instant.now())
+                .used(false)
+                .build();
+
+        refreshTokenRepository.saveAndFlush(newToken);
+        return rawToken;
     }
 
     public List<RefreshToken> getActiveSessions(User user) {

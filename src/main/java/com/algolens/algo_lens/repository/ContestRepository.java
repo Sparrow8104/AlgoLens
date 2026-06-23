@@ -13,7 +13,8 @@ public interface ContestRepository extends JpaRepository<Contest, Long> {
 
     List<Contest> findByStartTimeSecondsBetween(Long startInclusive, Long endInclusive);
 
-    List<Contest> findByActiveTrue();
+    List<Contest> findByIsActiveTrue();
 
-    long deleteByActiveFalseAndStartTimeSecondsLessThan(long timestamp);
+    long deleteByIsActiveFalseAndStartTimeSecondsLessThan(long timestamp);
 }
+
