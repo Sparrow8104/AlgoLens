@@ -50,24 +50,22 @@ class VerificationServiceTest {
 
     @Test
     void generateAndSendOtp_Success() {
-        // Regular Case: Valid user and phone number
+
         verificationService.generateAndSendOtp(user, "+1234567890");
 
-        // Verify OTP is set in Redis
         verify(valueOperations).set(eq("phone_otp:test@example.com"), anyString(), eq(5L), eq(TimeUnit.MINUTES));
-        // Verify Pending phone is set in Redis
+
         verify(valueOperations).set(eq("pending_phone:test@example.com"), eq("+1234567890"), eq(5L), eq(TimeUnit.MINUTES));
-        // Verify SMS is sent
+
         verify(twilioService).sendSms(eq("+1234567890"), anyString());
-        
-        // Verify SQL DB is NOT updated with phone number yet (preserving integrity)
+
         assertNull(user.getPhoneNumber());
         assertFalse(user.isPhoneVerified());
     }
 
     @Test
     void generateAndSendOtp_EmptyPhoneNumber_ThrowsException() {
-        // Edge Case: Empty phone number
+
         assertThrows(InvalidTokenException.class, () -> 
                 verificationService.generateAndSendOtp(user, "")
         );
@@ -75,21 +73,21 @@ class VerificationServiceTest {
 
     @Test
     void verifyOtp_Success() {
-        // Mock Redis storing correct OTP and phone
+
         when(valueOperations.get("phone_otp:test@example.com")).thenReturn("123456");
         when(valueOperations.get("pending_phone:test@example.com")).thenReturn("+1234567890");
         when(valueOperations.get("phone_otp_attempts:test@example.com")).thenReturn("0");
 
-        // Execute verification
+
         boolean result = verificationService.verifyOtp(user, "123456");
 
         assertTrue(result);
-        // Verify User updated and saved in SQL DB
+
         assertEquals("+1234567890", user.getPhoneNumber());
         assertTrue(user.isPhoneVerified());
         verify(userRepository).save(user);
 
-        // Verify Redis cleanup is performed
+
         verify(redisTemplate).delete("phone_otp:test@example.com");
         verify(redisTemplate).delete("pending_phone:test@example.com");
         verify(redisTemplate).delete("phone_otp_attempts:test@example.com");
@@ -100,14 +98,13 @@ class VerificationServiceTest {
         when(valueOperations.get("phone_otp:test@example.com")).thenReturn("123456");
         when(valueOperations.get("phone_otp_attempts:test@example.com")).thenReturn("2");
 
-        // Edge Case: Incorrect OTP
+
         assertThrows(InvalidTokenException.class, () ->
                 verificationService.verifyOtp(user, "000000")
         );
 
-        // Verify attempts counter incremented in Redis
         verify(valueOperations).increment("phone_otp_attempts:test@example.com");
-        // Verify SQL DB is NOT updated
+
         assertNull(user.getPhoneNumber());
         assertFalse(user.isPhoneVerified());
     }
@@ -115,15 +112,15 @@ class VerificationServiceTest {
     @Test
     void verifyOtp_MaxAttemptsExceeded_LocksOut() {
         when(valueOperations.get("phone_otp:test@example.com")).thenReturn("123456");
-        // Already 5 attempts
+
         when(valueOperations.get("phone_otp_attempts:test@example.com")).thenReturn("5");
 
-        // Edge Case: Max incorrect attempts reached
+
         assertThrows(InvalidTokenException.class, () ->
                 verificationService.verifyOtp(user, "123456")
         );
 
-        // Verify verification session keys deleted from Redis (lockout)
+
         verify(redisTemplate).delete("phone_otp:test@example.com");
         verify(redisTemplate).delete("pending_phone:test@example.com");
         verify(redisTemplate).delete("phone_otp_attempts:test@example.com");

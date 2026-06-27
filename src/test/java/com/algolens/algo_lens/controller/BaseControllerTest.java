@@ -7,9 +7,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+@ActiveProfiles("test")
 @Import({SecurityConfiguration.class, AuthFilterService.class})
 public abstract class BaseControllerTest {
 
