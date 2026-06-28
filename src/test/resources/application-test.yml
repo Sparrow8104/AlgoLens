@@ -1,0 +1,63 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  cache:
+    type: none
+  data:
+    redis:
+      repositories:
+        enabled: false
+  h2:
+    console:
+      enabled: true
+  mail:
+    host: localhost
+    port: 3025
+    username: test@example.com
+    password: testpassword
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+app:
+  base-url: ${BASE_URL:http://localhost:8080}
+  frontend:
+    base-url: ${APP_FRONTEND_BASE_URL:http://localhost:3000}
+  reset-token:
+    secret: ${RESET_TOKEN_SECRET:test-reset-secret-32chars-padding!!}
+    hmac-key: ${RESET_TOKEN_HMAC_KEY:test-hmac-key-32chars-padding!!!!}
+
+groq:
+  api:
+    key: ${GROQ_API_KEY:test-groq-key}
+    url: ${GROQ_API_URL:http://localhost:9999/groq}
+
+jwt:
+  secret: ${JWT_SECRET:test-jwt-secret-key-that-is-long-enough-for-hmac}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:86400000}
+
+twilio:
+  account:
+    sid: ${TWILIO_ACCOUNT_SID:TEST_SID}
+  auth:
+    token: ${TWILIO_AUTH_TOKEN:TEST_TOKEN}
+  phone:
+    number: ${TWILIO_PHONE_NUMBER:+15005550006}
+
+logging:
+  level:
+    root: WARN
