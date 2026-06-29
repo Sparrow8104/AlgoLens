@@ -1415,7 +1415,7 @@ AI-powered analysis of unsolved problems from recent contests with actionable ti
 **URL:** `/verification/send-otp`
 
 **Description:**  
-Request OTP for phone number verification. User will receive SMS and email with 6-digit code. OTP expires in 5 minutes.
+Request OTP for phone number verification. User will receive SMS with a 6-digit code. The request is rate-limited to prevent abuse (60-second cooldown per phone number/IP, max 5 requests per hour). OTP expires in 5 minutes.
 
 **Headers:**
 ```json
@@ -1433,26 +1433,47 @@ Request OTP for phone number verification. User will receive SMS and email with 
 ```
 
 **Success Response (200 OK):**
+```json
+{
+  "code": "OTP_SENT",
+  "message": "OTP sent successfully to phone and email",
+  "success": true
+}
 ```
-"OTP sent successfully to phone and email."
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "code": "INVALID_INPUT",
+  "message": "Invalid phone number format",
+  "success": false
+}
 ```
 
 **Error Response (401 Unauthorized):**
 ```json
 {
-  "timestamp": "2026-04-15T10:00:00",
-  "status": 401,
-  "error": "Unauthorized",
-  "message": "Invalid or missing authentication token",
-  "path": "/api/verification/send-otp"
+  "code": "UNAUTHORIZED",
+  "message": "Authentication required",
+  "success": false
+}
+```
+
+**Error Response (429 Too Many Requests):**
+```json
+{
+  "code": "RATE_LIMIT_EXCEEDED",
+  "message": "Please wait 59s before requesting another verification OTP.",
+  "success": false
 }
 ```
 
 **Notes:**
-- Phone number should be in international format (e.g., +1-555-266-7123)
+- Phone number must be in international format (e.g., +14155552671)
 - OTP valid for 5 minutes only
-- User receives SMS and backup email simultaneously
-- Can resend OTP after previous expires
+- The phone number is not saved to the database immediately; instead, it is held temporarily in Redis under `pending_phone:<email>` with a 5-minute TTL.
+- OTP is sent via Twilio SMS.
+- Rate limits: 60-second cooldown per phone number/IP, max 5 sends per hour per phone number/IP.
 
 ---
 
@@ -1462,7 +1483,7 @@ Request OTP for phone number verification. User will receive SMS and email with 
 **URL:** `/verification/verify-otp`
 
 **Description:**  
-Verify phone number by submitting OTP received via SMS.
+Verify phone number by submitting the OTP received via SMS.
 
 **Headers:**
 ```json
@@ -1480,29 +1501,42 @@ Verify phone number by submitting OTP received via SMS.
 ```
 
 **Success Response (200 OK):**
-```
-"Phone number successfully verified."
-```
-
-**Error Response (400 Bad Request):**
 ```json
 {
-  "timestamp": "2026-04-15T10:05:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Invalid or expired OTP.",
-  "path": "/api/verification/verify-otp"
+  "code": "OTP_VERIFIED",
+  "message": "Phone number successfully verified",
+  "success": true
+}
+```
+
+**Error Response (400 Bad Request - Invalid/Expired OTP):**
+```json
+{
+  "code": "OTP_INVALID",
+  "message": "Invalid or expired OTP",
+  "success": false
+}
+```
+
+**Error Response (400 Bad Request - Too Many Attempts):**
+```json
+{
+  "code": "OTP_INVALID",
+  "message": "Too many incorrect attempts. Please request a new verification code.",
+  "success": false
 }
 ```
 
 **Validation Rules:**
 - `otp`: Required, exactly 6 digits
 - Must be submitted within 5 minutes of sending
+- Maximum 5 attempts allowed before the session is locked and the pending number/OTP is removed.
 
 **Notes:**
-- After verification, user receives contest SMS alerts and voice calls
-- `NotificationDispatcherService` checks `phoneVerified=true` before sending SMS/calls
-- OTP stored in Redis with TTL, automatically expires
+- After successful verification, the phone number is updated in the database and `phoneVerified` is set to `true`.
+- After verification, user will receive contest SMS alerts and voice calls.
+- `NotificationDispatcherService` checks `phoneVerified=true` before sending SMS/calls.
+- OTP and pending phone are stored in Redis with a 5-minute TTL, automatically expiring if not verified.
 
 ---
 
@@ -1530,7 +1564,7 @@ Verify phone number by submitting OTP received via SMS.
 
 1. **Frontend calls:** `POST /auth/register` with name, email, password
 2. **Service Layer (AuthService):**
-   - Email rate limiting check (max 5 requests/minute per email)
+   - Email rate limiting check (60-second cooldown per email/IP, max 10 verification emails per hour per email/IP) via `RateLimiterService`
    - Hash email and check if user already exists
    - Create `PendingRegistration` record with hashed verification token (UUID)
    - Set token expiry to 24 hours
@@ -1582,17 +1616,17 @@ Success → Redirect to login
 
 1. **Frontend calls:** `POST /auth/login` with email, password (optional: X-Device-Id header)
 2. **Service Layer (AuthService):**
-   - Check login attempt counter (max 5 failures before 15-minute block) via `LoginAttemptService`
+   - Check login attempt counter (max 5 failures before 15-minute block, tracked persistingly in Redis) via `LoginAttemptService`
    - Authenticate using Spring Security with email + password
    - Load user from database
    - Check if email is verified (403 if not)
 3. **Validation:**
    - Email format valid, password minimum 8 characters
    - Account must be email-verified
-4. **Token Generation (JwtService):**
+4. **Token Generation (JwtService & RefreshTokenService):**
    - Generate **Access Token** (1-hour expiry)
    - Generate **Refresh Token** (7-day expiry)
-   - Store refresh token in `refresh_tokens` table with device info
+   - If a refresh token already exists for the user and device ID, it is rotated (the old token is marked as `used=true` and flushed, and a new one is created) to gracefully handle synchronous concurrent logins from the same device. Otherwise, a new record is created in the `refresh_tokens` table.
 5. **Response Returned:**
    ```json
    {
@@ -1632,18 +1666,26 @@ Return tokens → Frontend stores securely
    }
    ```
 2. **Service Layer (VerificationService):**
-   - Generate 6-digit OTP
-   - Store OTP in Redis with 5-minute TTL
-   - Update user's `phoneNumber` field in database
+   - Check rate limits (60-second cooldown per phone number/IP, max 5 sends per hour per phone number/IP) via `RateLimiterService`
+   - Generate secure 6-digit OTP using `SecureRandom`
+   - Store OTP in Redis (`phone_otp:<email>`) with 5-minute TTL
+   - Temporarily store the pending phone number in Redis (`pending_phone:<email>`) with a 5-minute TTL (does NOT write to database immediately)
 3. **TwilioService Triggered:**
    - Sends SMS: `"Your AlgoLens verification code is: 123456"`
 4. **EmailService Triggered:**
    - Sends backup email with OTP code
-5. **Response:** `"OTP sent successfully to phone and email."`
+5. **Response:**
+   ```json
+   {
+     "code": "OTP_SENT",
+     "message": "OTP sent successfully to phone and email",
+     "success": true
+   }
+   ```
 6. **Frontend Action:**
    - Show OTP input form
    - Start 5-minute countdown timer
-   - Allow "Resend OTP" after countdown
+   - Allow "Resend OTP" after countdown (respecting rate limits)
 
 **OTP Verification Step:**
 
@@ -1655,10 +1697,17 @@ Return tokens → Frontend stores securely
    ```
 8. **Service Layer (VerificationService):**
    - Retrieve OTP from Redis using user's email
-   - Compare with submitted OTP
-   - If valid: Set `phoneVerified=true`, delete OTP from Redis
-   - If invalid: Return 400 error
-9. **Response:** `"Phone number successfully verified."`
+   - Compare with submitted OTP, incrementing the attempt counter (max 5 attempts before locking)
+   - If valid: Retrieve pending phone number from Redis, set user's `phoneNumber` and `phoneVerified=true` in database, delete OTP and pending phone from Redis
+   - If invalid: Increment attempts counter. If attempts >= 5, delete OTP, pending phone, and attempt counter from Redis and lock out the verification session.
+9. **Response:**
+   ```json
+   {
+     "code": "OTP_VERIFIED",
+     "message": "Phone number successfully verified",
+     "success": true
+   }
+   ```
 10. **Frontend Action:**
    - Show success message
    - Enable contest notification preferences
@@ -1669,14 +1718,16 @@ Return tokens → Frontend stores securely
 **Flow Diagram (Textual):**
 ```
 User → POST /api/verification/send-otp
-  ↓ (Generate OTP)
+  ↓ (Rate limit check)
+  → Generate OTP & pending phone
   → Store in Redis (5-min TTL)
   → TwilioService.sendSms()
   → EmailService.sendOtpEmail()
   ↓
 User → POST /api/verification/verify-otp
-  ↓ (Hash check, update phoneVerified=true)
-  → Delete OTP from Redis
+  ↓ (Hash check, increment attempts)
+  → If valid: Read pending phone, update User (phoneNumber, phoneVerified=true)
+  → Delete OTP & pending phone from Redis
   ↓
 Success → Enable notifications
 ```
@@ -1779,48 +1830,49 @@ Success → User must re-login
 
 **Scheduled Execution (Every hour):**
 
-1. **CodeforcesSyncService** (runs on fixed schedule: 3600000ms = 1 hour)
+1. **CodeforcesSyncService** (runs on fixed schedule: 3600000ms = 1 hour, `@Transactional`)
+   - Fetch all existing contests from database in a single query and index them in a Map for $O(1)$ lookups
    - Call `CodeforcesApiClient.getContests()`
-   - Fetch all contests from Codeforces API
    - Filter for contests in "BEFORE" phase (not started yet)
 2. **Database Operations:**
-   - For each contest: Create or update `Contest` record with:
-     - Codeforces contest ID
-     - Contest name
-     - Start time (Unix timestamp in seconds)
-     - Contest type (CF, ICPC, etc.)
-     - Phase (BEFORE, RUNNING, FINISHED)
-   - Batch save all contests to database
-3. **Logging:** Log number of contests synced
+   - For each contest: Create or update `Contest` record with `isActive = true`, Codeforces contest ID, name, start time, type, and phase.
+   - Compare with existing database records: if a contest was previously marked as `isActive = true` but is no longer returned in the incoming "BEFORE" phase (meaning it started or was removed), update `isActive = false`.
+   - Batch save all modified/new contests to database.
+   - Automatically delete finished/inactive contests older than 30 days.
+3. **Logging:** Log count of synced and deactivated contests.
 
 **Contest Notification Dispatch (Every minute):**
 
 4. **NotificationDispatcherService** (runs cron: every minute)
    - Current time in UTC seconds
-   - Find contests starting between NOW+270s and NOW+330s (5-minute window)
+   - Find only active contests (`isActive = true`) starting between NOW+270s and NOW+330s (5-minute window)
    - Get all users where:
      - Email verified = true
      - Notify before contest = true (user preference)
 5. **For each eligible user & contest:**
-   - **EmailService:** Send contest reminder email
-   - **TwilioService:** Send SMS if phone verified
-   - **TwilioService:** Make voice call with contest message if phone verified
-6. **Logging:** Log dispatch for each contest
+   - Hand off task execution to Java 21's Virtual Threads (`Executors.newVirtualThreadPerTaskExecutor()`) to process dispatches concurrently in parallel without blocking.
+   - For each user in parallel:
+     - **EmailService:** Send contest reminder email (with isolated try-catch error handling).
+     - **TwilioService:** Send SMS if phone is verified (with isolated try-catch error handling).
+     - **TwilioService:** Make voice call with contest message if phone is verified (with isolated try-catch error handling).
+6. **Logging:** Log dispatch and error counts.
 
 **No Frontend Action:** This is automatic background process
 
 **Flow Diagram (Textual):**
 ```
-[Hourly] CodeforcesSyncService.syncContests()
+[Hourly] CodeforcesSyncService.syncContestsWithStatusUpdate()
   ↓ (Call Codeforces API)
-  → Fetch all contests
-  → Filter BEFORE phase
+  → Index existing contests & fetch incoming ones
+  → Update properties, set isActive=false for started contests
+  → Delete contests older than 30 days
   → Batch insert/update
   ↓
 [Every Minute] NotificationDispatcherService.dispatchNotifications()
-  ↓ (Find contests in 5-min window)
+  ↓ (Filter active contests in 5-min window)
   → Load eligible users (email verified, opted-in)
-  → For each user:
+  → Hand off to Virtual Thread Executor
+  → Concurrently per user (with isolated error handling):
     → EmailService.sendContestNotificationEmail()
     → TwilioService.sendSms() (if phone verified)
     → TwilioService.makeAgenticCall() (if phone verified)
@@ -2177,7 +2229,9 @@ All error responses follow this structure:
 ### Rate Limiting
 
 - **General endpoints:** 100 requests/minute per IP
-- **Authentication:** 5 requests/minute per email
+- **Email Verification / Resend:** 60-second cooldown per email/IP, max 10 verification emails per hour.
+- **Phone Verification OTP:** 60-second cooldown per phone number/IP, max 5 OTP sends per hour.
+- **Login attempts:** Blocked for 15 minutes (900 seconds) after 5 failed login attempts per IP (tracked persistingly in Redis).
 - **Codeforces API calls:** Respects Codeforces limits (2 req/sec)
 
 ### Caching
@@ -2306,13 +2360,14 @@ const refreshToken = async () => {
 
 Interactive API documentation is available at:
 ```
-http://localhost:8080/swagger-ui.html
+http://localhost:8080/swagger-ui/index.html
 ```
+*(or `http://localhost:8080/swagger-ui.html` which redirects to the UI path)*
 
 Try endpoints directly from the browser:
-1. Click "Authorize"
-2. Paste your access token
-3. Try endpoints with pre-filled parameters
+1. Click the "Authorize" button (configured to support OpenAPI 3 Bearer JWT Scheme).
+2. Paste your access token (obtained from login/registration).
+3. Try endpoints with pre-filled parameters.
 
 ---
 
@@ -2369,9 +2424,9 @@ Follow this exact sequence to implement a fully-functional frontend:
 2. Implement contest notification toggle (requires backend endpoint to save preference)
 3. Implement phone verification flow:
    - Add phone number input to account settings
-   - Call `POST /verification/send-otp`
-   - Display OTP input modal
-   - Call `POST /verification/verify-otp`
+   - Call `POST /verification/send-otp` (handle rate-limiting errors and parse the new `ApiResponse` JSON format)
+   - Display OTP input modal with a 5-minute timer
+   - Call `POST /verification/verify-otp` with the 6-digit OTP code (parse the success or attempt/locked-out error codes from `ApiResponse`)
 4. Show confirmed phone verification status
 
 **Phase 6: Advanced Features**
@@ -2728,16 +2783,14 @@ NO FURTHER FRONTEND ACTION NEEDED - it's automatic!
    - ASSUMED: API calls respect Codeforces rate limits (2 req/sec max)
    - ASSUMED: Contest data is cached for 1 hour to avoid hammering Codeforces
 
-5. **Background Services**
-   - ASSUMED: `CodeforcesSyncService` runs on fixed 1-hour schedule
-   - ASSUMED: `NotificationDispatcherService` runs every minute via cron
-   - ASSUMED: Both services are critical and must be monitored for failures
+5. **Background Services (Verified)**
+   - IMPLEMENTED: `CodeforcesSyncService` runs on a fixed 1-hour schedule, `@Transactional` to update contest status (marking active/inactive contests) and cleaning up finished contests older than 30 days.
+   - IMPLEMENTED: `NotificationDispatcherService` runs every minute via cron, using Java 21's Virtual Threads to asynchronously dispatch email, SMS, and voice call notifications in parallel.
 
-6. **Notifications via Twilio**
-   - ASSUMED: SMS sent only if `phoneVerified=true` and `phoneNumber` is not null
-   - ASSUMED: Voice calls use Twiml format with text-to-speech
-   - ASSUMED: Both SMS and voice calls are sent for contest alerts (dual notification)
-   - ASSUMED: OTP stored in Redis with 5-minute TTL (auto-expiry)
+6. **Notifications via Twilio & Email (Verified)**
+   - IMPLEMENTED: SMS and Voice calls are sent only if `phoneVerified=true` and `phoneNumber` is not null.
+   - IMPLEMENTED: Email, SMS, and Voice calls are dispatched in parallel with isolated try-catch blocks so a failure in one notification method or recipient does not block others.
+   - IMPLEMENTED: OTP and the pending phone number are stored in Redis with a 5-minute TTL (auto-expiry).
 
 7. **Groq AI Analysis**
    - ASSUMED: `GroqClient` calls Groq AI API (https://console.groq.com/)
@@ -2751,10 +2804,11 @@ NO FURTHER FRONTEND ACTION NEEDED - it's automatic!
    - ASSUMED: Password reset emails include OTP code
    - ASSUMED: OTP sent to BOTH email and SMS (redundancy)
 
-9. **Rate Limiting**
-   - ASSUMED: Email operations rate-limited at 5 requests/minute per email
-   - ASSUMED: Login attempts rate-limited at 5 failures before 15-minute IP block
-   - ASSUMED: General endpoints rate-limited at 100 requests/minute per IP
+9. **Rate Limiting (Verified)**
+   - IMPLEMENTED: Email verification requests (register, resend) are rate-limited via Redis with a 60-second cooldown and maximum 10 sends per hour per email/IP.
+   - IMPLEMENTED: Phone verification OTP requests are rate-limited via Redis with a 60-second cooldown and maximum 5 sends per hour per phone number/IP.
+   - IMPLEMENTED: Login attempts are persistingly tracked in Redis with a maximum of 5 failed attempts per IP, after which the IP is blocked from login attempts for 15 minutes.
+   - ASSUMED: General endpoints are rate-limited at 100 requests/minute per IP.
 
 10. **Database Architecture**
     - ASSUMED: Tables: users, pending_registration, refresh_tokens, password_reset_tokens, friends, contests
@@ -2815,9 +2869,10 @@ NO FURTHER FRONTEND ACTION NEEDED - it's automatic!
 
 ### Potential Production Considerations (Not Implemented)
 
-1. **Metrics & Monitoring**
-   - No mention of logging library (should use SLF4J + Logback)
-   - No metrics collection (should use Micrometer + Prometheus)
+1. **Metrics & Monitoring (Partially Implemented)**
+   - IMPLEMENTED: Spring Boot Actuator is added with the `/actuator/health` endpoint exposed to monitor application health.
+   - IMPLEMENTED: SLF4J with Lombok `@Slf4j` is used extensively for logging across controllers and services.
+   - No advanced metrics collection yet (should use Micrometer + Prometheus).
 
 2. **API Security**
    - No mention of CORS configuration
