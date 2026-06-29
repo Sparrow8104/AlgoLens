@@ -35,12 +35,12 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
-    private final EmailRateLimiterService emailRateLimiterService;
+    private final RateLimiterService rateLimiterService;
     private final LoginAttemptService loginAttemptService;
 
     private final PendingRegistrationRepository pendingRegistrationRepository;
 
-    public AuthService(PasswordEncoder passwordEncoder, JwtService jwtService, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService, AuthenticationManager authenticationManager, EmailService emailService, EmailRateLimiterService emailRateLimiterService, LoginAttemptService loginAttemptService, PendingRegistrationRepository pendingRegistrationRepository) {
+    public AuthService(PasswordEncoder passwordEncoder, JwtService jwtService, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, RefreshTokenService refreshTokenService, AuthenticationManager authenticationManager, EmailService emailService, RateLimiterService rateLimiterService, LoginAttemptService loginAttemptService, PendingRegistrationRepository pendingRegistrationRepository) {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
@@ -48,7 +48,7 @@ public class AuthService {
         this.refreshTokenService = refreshTokenService;
         this.authenticationManager = authenticationManager;
         this.emailService = emailService;
-        this.emailRateLimiterService = emailRateLimiterService;
+        this.rateLimiterService = rateLimiterService;
         this.loginAttemptService = loginAttemptService;
         this.pendingRegistrationRepository = pendingRegistrationRepository;
     }
@@ -61,7 +61,7 @@ public class AuthService {
         if (existingUser.isPresent()) {
             throw new UserAlreadyExistsException("Email already registered: " + registerRequest.email());
         }
-        emailRateLimiterService.checkAndRecord(email, ip);
+        rateLimiterService.checkAndRecordEmail(email, ip);
 
         String token = UUID.randomUUID().toString();
         String hashedToken = refreshTokenService.hashToken(token);
@@ -200,7 +200,7 @@ public class AuthService {
                 .findByEmail(email)
                 .orElseThrow(() -> new InvalidTokenException(
                         "If this email is pending verification, a new link has been sent ."));
-        emailRateLimiterService.checkAndRecord(email, ip);
+        rateLimiterService.checkAndRecordEmail(email, ip);
 
 
 

@@ -1,12 +1,16 @@
 package com.algolens.algo_lens.exception;
 
 
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.util.Map;
 
+@Slf4j
 @ControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
@@ -24,10 +28,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleGenericException(Exception e){
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Something went wrong"+e.getMessage());
+    public ResponseEntity<Map<String, String>> handleAll(Exception e, HttpServletRequest request) {
+        log.error("Unhandled exception on {}: {}", request.getRequestURI(), e.getMessage(), e);
+        return ResponseEntity.status(500)
+                .body(Map.of("error", e.getClass().getSimpleName(), "message", e.getMessage()));
     }
 
     @ExceptionHandler(CfAuthException.class)

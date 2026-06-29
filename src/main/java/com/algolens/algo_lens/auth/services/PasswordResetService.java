@@ -50,7 +50,7 @@ public class PasswordResetService {
     private final RefreshTokenRepository       refreshTokenRepository;
     private final PasswordEncoder              passwordEncoder;
     private final EmailService                 emailService;
-    private final EmailRateLimiterService      emailRateLimiterService;
+    private final RateLimiterService           rateLimiterService;
 
     @Value("${app.reset-token.secret}")
     private String jwtSecret;
@@ -63,18 +63,18 @@ public class PasswordResetService {
                                 RefreshTokenRepository refreshTokenRepository,
                                 PasswordEncoder passwordEncoder,
                                 EmailService emailService,
-                                EmailRateLimiterService emailRateLimiterService) {
+                                RateLimiterService rateLimiterService) {
         this.userRepository               = userRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.refreshTokenRepository       = refreshTokenRepository;
         this.passwordEncoder              = passwordEncoder;
         this.emailService                 = emailService;
-        this.emailRateLimiterService      = emailRateLimiterService;
+        this.rateLimiterService           = rateLimiterService;
     }
 
     @Transactional
     public String forgotPassword(ForgotPasswordRequest request, String ip) {
-        emailRateLimiterService.checkAndRecord(request.email(), ip);
+        rateLimiterService.checkAndRecordEmail(request.email(), ip);
 
         userRepository.findByEmail(request.email()).ifPresent(user -> {
             if (user.isEmailVerified()) {

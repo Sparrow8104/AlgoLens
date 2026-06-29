@@ -1,76 +1,12 @@
 spring:
-  application:
-    name: algo_lens
-  config:
-    import: optional:application-secret.yml
-
   datasource:
-    url: jdbc:mysql://mysql:3306/${DB_NAME}
+    url: ${DB_URL:jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/${DB_NAME}}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
-  jpa:
-    show-sql: true
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-    open-in-view: false
-
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
       timeout: 2000ms
-
-  cache:
-    type: redis
-    redis:
-      time-to-live: 300000
-
-  mail:
-    host: ${MAIL_HOST}
-    port: ${MAIL_PORT}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-        starttls:
-          enable: true
-
-groq:
-  api:
-    key: ${GROQ_API_KEY}
-    url: ${GROQ_API_URL}
-
-app:
-  base-url: ${BASE_URL}
-  frontend:
-    base-url: ${APP_FRONTEND_BASE_URL:${FRONTEND_BASE_URL}}
-
-  reset-token:
-    secret: ${RESET_TOKEN_SECRET}
-    hmac-key: ${RESET_TOKEN_HMAC_KEY}
-
-jwt:
-  secret: ${JWT_SECRET}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION}
-  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION}
-
-logging:
-  level:
-    org.springframework.cache: TRACE
-    io.netty.resolver.dns.DnsServerAddressStreamProviders: OFF
-
-twilio:
-  account:
-    sid: ${TWILIO_ACCOUNT_SID}
-  auth:
-    token: ${TWILIO_AUTH_TOKEN}
-  phone:
-    number: ${TWILIO_PHONE_NUMBER}

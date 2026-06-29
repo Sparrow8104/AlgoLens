@@ -1,14 +1,14 @@
 spring:
   application:
     name: algo_lens
-  config:
-    import: optional:classpath:application-secret.yml
+
+  profiles:
+    active: local
 
   jpa:
     show-sql: true
     hibernate:
       ddl-auto: update
-
     properties:
       hibernate:
         format_sql: true
@@ -20,19 +20,57 @@ spring:
     redis:
       time-to-live: 300000
 
-  profiles:
-   active: local
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
 
+app:
+  base-url: ${BASE_URL:http://localhost:8080}
+  frontend:
+    base-url: ${APP_FRONTEND_BASE_URL:http://localhost:8080}
+  reset-token:
+    secret: ${RESET_TOKEN_SECRET}
+    hmac-key: ${RESET_TOKEN_HMAC_KEY}
+
+groq:
+  api:
+    key: ${GROQ_API_KEY}
+    url: ${GROQ_API_URL:https://api.groq.com}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:1800000}
+
+twilio:
+  account:
+    sid: ${TWILIO_ACCOUNT_SID}
+  auth:
+    token: ${TWILIO_AUTH_TOKEN}
+  phone:
+    number: ${TWILIO_PHONE_NUMBER}
 
 logging:
   level:
     org.springframework.cache: TRACE
     io.netty.resolver.dns.DnsServerAddressStreamProviders: OFF
+    com:algolens: DEBUG
 
-
-
-
-
-
-
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
 

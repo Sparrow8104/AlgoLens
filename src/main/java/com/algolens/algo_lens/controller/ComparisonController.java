@@ -6,9 +6,11 @@ import com.algolens.algo_lens.dtos.comparison.SubmissionCompareRequestDTO;
 import com.algolens.algo_lens.dtos.comparison.SubmissionCompareResponseDTO;
 import com.algolens.algo_lens.services.service.ComparisonServices;
 import io.swagger.v3.oas.annotations.Operation;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/compare")
 public class ComparisonController {
@@ -22,6 +24,7 @@ public class ComparisonController {
     @GetMapping("/rating")
     @Operation(summary = "Compare two Codeforces user ratings")
     public ResponseEntity<RatingComparisonDTO> compareRatings(@RequestParam String handle1,@RequestParam String handle2) {
+        log.info("Comparing ratings for users: {} and {}", handle1, handle2);
         RatingComparisonDTO compare=comparisonServices.compareRatings(handle1, handle2);
         return ResponseEntity.ok().body(compare);
     }

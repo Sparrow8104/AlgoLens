@@ -49,8 +49,18 @@ public class AuthFilterService extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }
+        } catch (com.algolens.algo_lens.auth.exception.TokenRefreshException e) {
+            SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write(String.format("{\"error\": \"UNAUTHORIZED\", \"message\": \"%s\"}", e.getMessage()));
+            return;
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"UNAUTHORIZED\", \"message\": \"Authentication failed: " + e.getMessage() + "\"}");
+            return;
         }
         filterChain.doFilter(request,response);
     }

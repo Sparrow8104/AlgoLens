@@ -39,7 +39,14 @@ public class AnalysisServiceImpl implements AnalysisService {
         String result = groqClient.generate(prompt);
 
         try {
-            String cleaned = result.replaceAll("(?s)```json\\s*|```", "").trim();
+            String cleaned = result;
+            int jsonStart = cleaned.indexOf("{");
+            int jsonEnd = cleaned.lastIndexOf("}");
+            if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+                cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+            } else {
+                cleaned = cleaned.replaceAll("(?s)```json\\s*|```", "").trim();
+            }
             log.info("Cleaned AI response: {}", cleaned);
             return objectMapper.readValue(cleaned, AiAnalysisResponseDTO.class);
 

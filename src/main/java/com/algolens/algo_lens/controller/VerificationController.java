@@ -1,10 +1,12 @@
 package com.algolens.algo_lens.controller;
 
 import com.algolens.algo_lens.auth.entities.User;
+import com.algolens.algo_lens.auth.services.RateLimiterService;
 import com.algolens.algo_lens.dtos.verification.ApiResponse;
 import com.algolens.algo_lens.dtos.verification.OtpVerificationRequest;
 import com.algolens.algo_lens.dtos.verification.PhoneVerificationRequest;
 import com.algolens.algo_lens.services.VerificationService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -19,11 +21,13 @@ import org.springframework.web.bind.annotation.*;
 public class VerificationController {
 
     private final VerificationService verificationService;
+    private final RateLimiterService rateLimiterService;
 
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse> sendOtp(
             @AuthenticationPrincipal User user,
-            @RequestBody PhoneVerificationRequest request) {
+            @RequestBody PhoneVerificationRequest request,
+            HttpServletRequest httpRequest) {
 
         if (user == null) {
             return ResponseEntity
@@ -38,9 +42,18 @@ public class VerificationController {
         }
 
         try {
+            String ip = extractIp(httpRequest);
+            rateLimiterService.checkAndRecordPhone(request.getPhoneNumber(), ip);
+
             verificationService.generateAndSendOtp(user, request.getPhoneNumber());
             log.info("OTP sent for user: {}", user.getEmail());
             return ResponseEntity.ok(ApiResponse.success("OTP_SENT", "OTP sent successfully to phone and email"));
+
+        } catch (com.algolens.algo_lens.auth.exception.RateLimitExceededException e) {
+            log.warn("Rate limit exceeded in sendOtp for user {}: {}", user.getEmail(), e.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(ApiResponse.error("RATE_LIMIT_EXCEEDED", e.getMessage()));
 
         } catch (IllegalArgumentException e) {
             log.warn("Invalid input in sendOtp for user {}: {}", user.getEmail(), e.getMessage());
@@ -97,6 +110,14 @@ public class VerificationController {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String extractIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
 }

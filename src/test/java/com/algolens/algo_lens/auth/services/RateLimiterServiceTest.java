@@ -30,7 +30,7 @@ class RateLimiterServiceTest {
 
     @Test
     void checkAndRecordPhone_Success() {
-        // Regular Case: Redis script returns 0 (success)
+
         when(redisTemplate.execute(
                 any(DefaultRedisScript.class),
                 eq(List.of("phone:cd:+1234567890", "phone:hr:+1234567890", "phone:cd:ip:127.0.0.1", "phone:hr:ip:127.0.0.1")),
@@ -44,7 +44,7 @@ class RateLimiterServiceTest {
 
     @Test
     void checkAndRecordPhone_CooldownHit() {
-        // Edge Case: Identity Cooldown Hit (e.g. user requests SMS again in <60 seconds)
+
         when(redisTemplate.execute(
                 any(DefaultRedisScript.class),
                 anyList(),
@@ -61,7 +61,7 @@ class RateLimiterServiceTest {
 
     @Test
     void checkAndRecordPhone_IpCooldownHit() {
-        // Edge Case: IP Cooldown Hit (e.g. attacker spamming multiple numbers from the same IP)
+
         when(redisTemplate.execute(
                 any(DefaultRedisScript.class),
                 anyList(),

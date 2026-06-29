@@ -11,7 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -25,6 +25,7 @@ public class VerificationService {
 
     private static final String OTP_PREFIX = "phone_otp:";
     private static final String OTP_ATTEMPTS_PREFIX = "phone_otp_attempts:";
+    private static final String PENDING_PHONE_PREFIX = "pending_phone:";
     private static final long OTP_TTL_MINUTES = 5;
     private static final int MAX_OTP_ATTEMPTS = 5;
 
@@ -38,7 +39,8 @@ public class VerificationService {
         }
 
         log.debug("Generating OTP for user: {}", user.getEmail());
-        String otp = String.format("%06d", new Random().nextInt(999999));
+        SecureRandom secureRandom = new SecureRandom();
+        String otp = String.format("%06d", secureRandom.nextInt(1000000));
 
         try {
             redisTemplate.opsForValue().set(
@@ -47,26 +49,18 @@ public class VerificationService {
                     OTP_TTL_MINUTES,
                     TimeUnit.MINUTES
             );
+            // Save the pending phone number in Redis instead of the database
+            redisTemplate.opsForValue().set(
+                    PENDING_PHONE_PREFIX + user.getEmail(),
+                    phoneNumber,
+                    OTP_TTL_MINUTES,
+                    TimeUnit.MINUTES
+            );
             redisTemplate.delete(OTP_ATTEMPTS_PREFIX + user.getEmail());
-            log.debug("OTP stored in Redis for user: {}", user.getEmail());
+            log.debug("OTP and pending phone stored in Redis for user: {}", user.getEmail());
         } catch (Exception e) {
             log.error("Redis operation failed: {}", e.getMessage(), e);
             throw new ExternalApiException("Failed to generate OTP. Please try again.");
-        }
-
-        try {
-            user.setPhoneNumber(phoneNumber);
-            userRepository.save(user);
-            log.debug("Phone number updated for user: {}", user.getEmail());
-        } catch (Exception e) {
-            log.error("Database operation failed: {}", e.getMessage(), e);
-            try {
-                redisTemplate.delete(OTP_PREFIX + user.getEmail());
-                log.debug("Rolled back Redis OTP due to database failure");
-            } catch (Exception rollbackEx) {
-                log.error("Failed to rollback Redis: {}", rollbackEx.getMessage());
-            }
-            throw new ExternalApiException("Failed to save phone number. Please try again.");
         }
 
         try {
@@ -77,9 +71,8 @@ public class VerificationService {
             log.error("Failed to send SMS to {}: {}", phoneNumber, e.getMessage(), e);
             try {
                 redisTemplate.delete(OTP_PREFIX + user.getEmail());
-                user.setPhoneNumber(null);
-                userRepository.save(user);
-                log.debug("Rolled back Redis OTP and phone number due to SMS failure");
+                redisTemplate.delete(PENDING_PHONE_PREFIX + user.getEmail());
+                log.debug("Rolled back Redis OTP and pending phone due to SMS failure");
             } catch (Exception rollbackEx) {
                 log.error("Failed to rollback after SMS failure: {}", rollbackEx.getMessage());
             }
@@ -118,6 +111,7 @@ public class VerificationService {
         int attempts = attemptsStr == null ? 0 : Integer.parseInt(attemptsStr);
         if (attempts >= MAX_OTP_ATTEMPTS) {
             redisTemplate.delete(OTP_PREFIX + user.getEmail());
+            redisTemplate.delete(PENDING_PHONE_PREFIX + user.getEmail());
             redisTemplate.delete(attemptsKey);
             log.warn("User {} locked out from OTP verification due to too many attempts", user.getEmail());
             throw new InvalidTokenException("Too many incorrect attempts. Please request a new verification code.");
@@ -139,6 +133,7 @@ public class VerificationService {
 
             if (newAttempts >= MAX_OTP_ATTEMPTS) {
                 redisTemplate.delete(OTP_PREFIX + user.getEmail());
+                redisTemplate.delete(PENDING_PHONE_PREFIX + user.getEmail());
                 redisTemplate.delete(attemptsKey);
                 throw new InvalidTokenException("Too many incorrect attempts. Please request a new verification code.");
             }
@@ -147,7 +142,15 @@ public class VerificationService {
 
         log.debug("OTP verified successfully for user: {}", user.getEmail());
 
+        // Fetch the pending phone number from Redis
+        String pendingPhone = redisTemplate.opsForValue().get(PENDING_PHONE_PREFIX + user.getEmail());
+        if (pendingPhone == null) {
+            log.warn("Pending phone number not found in Redis for user: {}", user.getEmail());
+            throw new InvalidTokenException("Phone verification session expired. Please request a new OTP.");
+        }
+
         try {
+            user.setPhoneNumber(pendingPhone);
             user.setPhoneVerified(true);
             userRepository.save(user);
             log.debug("User marked as phone verified: {}", user.getEmail());
@@ -158,8 +161,9 @@ public class VerificationService {
 
         try {
             redisTemplate.delete(OTP_PREFIX + user.getEmail());
+            redisTemplate.delete(PENDING_PHONE_PREFIX + user.getEmail());
             redisTemplate.delete(attemptsKey);
-            log.debug("OTP and attempt counter deleted from Redis after successful verification");
+            log.debug("OTP, pending phone and attempt counter deleted from Redis after successful verification");
         } catch (Exception e) {
             log.warn("Failed to delete OTP from Redis (non-critical): {}", e.getMessage());
         }
