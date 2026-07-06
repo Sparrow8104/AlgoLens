@@ -10,9 +10,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,9 +42,10 @@ public class UserControllerTest extends BaseControllerTest {
 
     @Test
     public void getUserContestHistory_Success() throws Exception {
-        when(userServices.getUserContestHistory("tourist")).thenReturn(List.of(ContestDTO.builder().build()));
+        Page<ContestDTO> page = new PageImpl<>(List.of(ContestDTO.builder().build()));
+        when(userServices.getUserContestHistoryPaginated(eq("tourist"), any())).thenReturn(page);
 
-        mockMvc.perform(get("/api/users/tourist/contest-history"))
+        mockMvc.perform(get("/api/users/tourist/contest-history/paginated"))
                 .andExpect(status().isOk());
     }
 

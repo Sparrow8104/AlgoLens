@@ -11,6 +11,9 @@ import com.algolens.algo_lens.mapper.FriendMapper;
 import com.algolens.algo_lens.models.UserFriend;
 import com.algolens.algo_lens.repository.UserFriendRepository;
 import com.algolens.algo_lens.services.service.FriendServices;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -224,5 +227,37 @@ public class FriendServicecImpl implements FriendServices {
     }
     private String problemKey(ProblemDTO problem) {
         return problem.getContestId() + "_" + problem.getIndex();
+    }
+
+    private <T> Page<T> paginateList(List<T> list, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), list.size());
+        List<T> slice = start >= end ? List.of() : list.subList(start, end);
+        return new PageImpl<>(slice, pageable, list.size());
+    }
+
+    @Override
+    public Page<FriendDTO> getFriendsPaginated(String handle, Pageable pageable) {
+        return paginateList(getFriends(handle), pageable);
+    }
+
+    @Override
+    public Page<LeaderboardEntryDTO> getLeaderboardPaginated(String handle, Pageable pageable) {
+        return paginateList(getLeaderboard(handle), pageable);
+    }
+
+    @Override
+    public Page<UnsolvedByMeDTO> getUnsolvedByMePaginated(String handle, Pageable pageable) {
+        return paginateList(getUnsolvedByMe(handle), pageable);
+    }
+
+    @Override
+    public Page<ContestOverlapDTO> getContestOverlapPaginated(String handle, int contestId, Pageable pageable) {
+        return paginateList(getContestOverlap(handle, contestId), pageable);
+    }
+
+    @Override
+    public Page<StreakCompareDTO> getStreakComparisonPaginated(String handle, Pageable pageable) {
+        return paginateList(getStreakComparison(handle), pageable);
     }
 }

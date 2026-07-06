@@ -52,5 +52,14 @@ public class ContestServicesImpl implements ContestServices {
         return new PageImpl<>(slice, pageable, upcoming.size());
     }
 
-
+    @Override
+    public Page<UpcomingContestDTO> getUpcomingContestsPaginated(Pageable pageable) {
+        List<UpcomingContestDTO> upcoming = getUpcomingContests();
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), upcoming.size());
+        List<UpcomingContestDTO> slice = start >= end
+                ? List.of()
+                : upcoming.subList(start, end);
+        return new PageImpl<>(slice, pageable, upcoming.size());
+    }
 }

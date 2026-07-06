@@ -17,6 +17,9 @@ import com.algolens.algo_lens.exception.UserNotFoundException;
 import com.algolens.algo_lens.mapper.UserMapper;
 import com.algolens.algo_lens.services.service.UserServices;
 import com.algolens.algo_lens.services.stats.UserStatsService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.*;
@@ -137,5 +140,12 @@ public class UserServicesImpl implements UserServices {
                 .build();
     }
 
-
+    @Override
+    public Page<ContestDTO> getUserContestHistoryPaginated(String handle, Pageable pageable) {
+        List<ContestDTO> contestHistory = getUserContestHistory(handle);
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), contestHistory.size());
+        List<ContestDTO> slice = start >= end ? List.of() : contestHistory.subList(start, end);
+        return new PageImpl<>(slice, pageable, contestHistory.size());
+    }
 }

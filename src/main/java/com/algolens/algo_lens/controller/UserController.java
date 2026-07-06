@@ -6,11 +6,10 @@ import com.algolens.algo_lens.dtos.SubmissionStatsDTO;
 import com.algolens.algo_lens.dtos.user.userInfo.UserProfileDTO;
 import com.algolens.algo_lens.services.service.UserServices;
 import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -31,13 +30,6 @@ public class UserController {
         return ResponseEntity.ok(userProfile);
     }
 
-    @GetMapping("/{handle}/contest-history")
-    @Operation(summary = "Get Codeforces user contest history")
-    public ResponseEntity<List<ContestDTO>> getUserContestHistory(@PathVariable String handle){
-        List<ContestDTO> contests = userServices.getUserContestHistory(handle);
-        return ResponseEntity.ok(contests);
-    }
-
     @GetMapping("/{handle}/rating-graph")
     @Operation(summary = "Get Codeforces user rating graph")
     public ResponseEntity<List<RatingGraphDTO>> getUserRatingGraph(@PathVariable String handle){
@@ -52,5 +44,13 @@ public class UserController {
         return ResponseEntity.ok(stats);
     }
 
-
+    @GetMapping("/{handle}/contest-history/paginated")
+    @Operation(summary = "Get Codeforces user contest history (paginated)")
+    public ResponseEntity<Page<ContestDTO>> getUserContestHistoryPaginated(
+            @PathVariable String handle,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ){
+        return ResponseEntity.ok(userServices.getUserContestHistoryPaginated(handle, PageRequest.of(page, size)));
+    }
 }

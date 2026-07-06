@@ -12,4 +12,5 @@ public interface ContestServices {
     List<CodeforcesContestItemDTO> getAllContestsPaginated();
     List<UpcomingContestDTO> getUpcomingContests();
     Page<UpcomingContestDTO> getAllContestsPaginated(Pageable pageable);
+    Page<UpcomingContestDTO> getUpcomingContestsPaginated(Pageable pageable);
 }

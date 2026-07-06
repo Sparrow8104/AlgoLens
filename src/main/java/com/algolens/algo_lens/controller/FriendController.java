@@ -4,6 +4,8 @@ import com.algolens.algo_lens.dtos.friend.*;
 import com.algolens.algo_lens.services.service.FriendServices;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.Getter;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,14 +56,6 @@ public class FriendController {
         return ResponseEntity.ok(friendServices.getLeaderboard(handle));
     }
 
-    @GetMapping("/{handle}/unsolved-by-me")
-    @Operation(summary = "Get the problems that user did not solved")
-    public ResponseEntity<List<UnsolvedByMeDTO>> getUnsolvedByMe(
-            @PathVariable String handle
-    ){
-        return ResponseEntity.ok(friendServices.getUnsolvedByMe(handle));
-    }
-
     @GetMapping("/{handle}/streak-compare")
     @Operation(summary = "Compare streak with friends")
     public ResponseEntity<List<StreakCompareDTO>> getStreakCompare(@PathVariable String handle){
@@ -72,5 +66,56 @@ public class FriendController {
     @Operation(summary = "Get the probelem from an overlapping contests")
     public ResponseEntity<List<ContestOverlapDTO>> getContestOverlap(@PathVariable String handle, @PathVariable int contestId){
         return ResponseEntity.ok(friendServices.getContestOverlap(handle, contestId));
+    }
+
+    @GetMapping("/{handle}/paginated")
+    @Operation(summary = "Get all friends that user added (paginated)")
+    public ResponseEntity<Page<FriendDTO>> getFriendsPaginated(
+            @PathVariable String handle,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(friendServices.getFriendsPaginated(handle, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/{handle}/leaderboard/paginated")
+    @Operation(summary = "Get the leaderboard that shows comparison with all friends (paginated)")
+    public ResponseEntity<Page<LeaderboardEntryDTO>> getLeaderboardPaginated(
+            @PathVariable String handle,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ){
+        return ResponseEntity.ok(friendServices.getLeaderboardPaginated(handle, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/{handle}/unsolved-by-me/paginated")
+    @Operation(summary = "Get the problems that user did not solved (paginated)")
+    public ResponseEntity<Page<UnsolvedByMeDTO>> getUnsolvedByMePaginated(
+            @PathVariable String handle,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ){
+        return ResponseEntity.ok(friendServices.getUnsolvedByMePaginated(handle, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/{handle}/streak-compare/paginated")
+    @Operation(summary = "Compare streak with friends (paginated)")
+    public ResponseEntity<Page<StreakCompareDTO>> getStreakComparePaginated(
+            @PathVariable String handle,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ){
+        return ResponseEntity.ok(friendServices.getStreakComparisonPaginated(handle, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/{handle}/contest-overlap/{contestId}/paginated")
+    @Operation(summary = "Get the probelem from an overlapping contests (paginated)")
+    public ResponseEntity<Page<ContestOverlapDTO>> getContestOverlapPaginated(
+            @PathVariable String handle,
+            @PathVariable int contestId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ){
+        return ResponseEntity.ok(friendServices.getContestOverlapPaginated(handle, contestId, PageRequest.of(page, size)));
     }
 }

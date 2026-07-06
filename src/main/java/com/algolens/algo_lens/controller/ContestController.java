@@ -34,6 +34,14 @@ public class ContestController {
         return ResponseEntity.ok().body(upcoming);
     }
 
+    @GetMapping("/upcoming/paginated")
+    @Operation(summary = "Get Codeforces upcoming contests paginated")
+    public ResponseEntity<Page<UpcomingContestDTO>> upcomingContestsPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok().body(contestServices.getUpcomingContestsPaginated(PageRequest.of(page, size)));
+    }
+
     @GetMapping
     @Operation(summary = "Get Codeforces all contests")
     public ResponseEntity<Page<UpcomingContestDTO>>  getAllContests(
