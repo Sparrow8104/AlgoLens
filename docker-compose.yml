@@ -15,6 +15,7 @@ services:
       - .env
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - DB_URL=jdbc:mysql://mysql:3306/${DB_NAME}
 
   mysql:
     image: mysql:8

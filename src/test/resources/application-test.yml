@@ -35,7 +35,7 @@ spring:
 app:
   base-url: ${BASE_URL:http://localhost:8080}
   frontend:
-    base-url: ${APP_FRONTEND_BASE_URL:http://localhost:3000}
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   reset-token:
     secret: ${RESET_TOKEN_SECRET:test-reset-secret-32chars-padding!!}
     hmac-key: ${RESET_TOKEN_HMAC_KEY:test-hmac-key-32chars-padding!!!!}

@@ -526,16 +526,20 @@ Retrieve Codeforces user profile information. Data is cached for 5 minutes.
 
 ---
 
-### Get User Contest History
+### Get User Contest History (Paginated)
 
 **Method:** GET  
-**URL:** `/users/{handle}/contest-history`
+**URL:** `/users/{handle}/contest-history/paginated`
 
 **Description:**  
-Retrieve all contests the user participated in with rating changes.
+Retrieve contests the user participated in with rating changes, with pagination support.
 
 **Path Parameters:**
 - `handle` (required): Codeforces username
+
+**Query Parameters:**
+- `page` (optional, default=0): Page number (0-indexed)
+- `size` (optional, default=20): Items per page
 
 **Headers:**
 ```json
@@ -546,24 +550,32 @@ Retrieve all contests the user participated in with rating changes.
 
 **Success Response (200 OK):**
 ```json
-[
-  {
-    "contestId": 1865,
-    "contestName": "Codeforces Round 892 (Div. 1)",
-    "rank": 12,
-    "oldRating": 3920,
-    "newRating": 3950,
-    "ratingChange": 30
-  },
-  {
-    "contestId": 1860,
-    "contestName": "Codeforces Round 891 (Div. 1)",
-    "rank": 45,
-    "oldRating": 3910,
-    "newRating": 3920,
-    "ratingChange": 10
+{
+  "content": [
+    {
+      "contestId": 1865,
+      "contestName": "Codeforces Round 892 (Div. 1)",
+      "rank": 12,
+      "oldRating": 3920,
+      "newRating": 3950,
+      "ratingChange": 30
+    },
+    {
+      "contestId": 1860,
+      "contestName": "Codeforces Round 891 (Div. 1)",
+      "rank": 45,
+      "oldRating": 3910,
+      "newRating": 3920,
+      "ratingChange": 10
+    }
+  ],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 450,
+    "totalPages": 23
   }
-]
+}
 ```
 
 **Error Response (404 Not Found):**
@@ -573,7 +585,7 @@ Retrieve all contests the user participated in with rating changes.
   "status": 404,
   "error": "Not Found",
   "message": "No contest history found for user 'unknown_user'",
-  "path": "/api/users/unknown_user/contest-history"
+  "path": "/api/users/unknown_user/contest-history/paginated"
 }
 ```
 
@@ -701,6 +713,57 @@ Retrieve list of upcoming Codeforces contests (next 7-14 days).
 - Convert `startTimeSeconds` (Unix timestamp) to display contest start time
 - `relativeTimeSeconds`: negative means contest hasn't started, positive means it's ongoing/finished
 - `durationSeconds` is 2 hours (7200 seconds) for most contests
+
+---
+
+### Get Upcoming Contests (Paginated)
+
+**Method:** GET  
+**URL:** `/contests/upcoming/paginated`
+
+**Description:**  
+Retrieve list of upcoming Codeforces contests (next 7-14 days) with pagination.
+
+**Query Parameters:**
+- `page` (optional, default=0): Page number (0-indexed)
+- `size` (optional, default=20): Items per page
+
+**Headers:**
+```json
+{
+  "Authorization": "Bearer <access_token>"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "content": [
+    {
+      "contestId": 1900,
+      "name": "Codeforces Round 900 (Div. 1 + Div. 2)",
+      "type": "CF",
+      "durationSeconds": 7200,
+      "startTimeSeconds": 1713177600,
+      "relativeTimeSeconds": -86400
+    },
+    {
+      "contestId": 1901,
+      "name": "Educational Codeforces Round 160",
+      "type": "ICPC",
+      "durationSeconds": 7200,
+      "startTimeSeconds": 1713264000,
+      "relativeTimeSeconds": 0
+    }
+  ],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 2,
+    "totalPages": 1
+  }
+}
+```
 
 ---
 
@@ -1011,6 +1074,60 @@ Get all friends added by a user with their current ratings.
 
 ---
 
+### Get Friends List (Paginated)
+
+**Method:** GET  
+**URL:** `/friends/{handle}/paginated`
+
+**Description:**  
+Get all friends added by a user with their current ratings, with pagination support.
+
+**Path Parameters:**
+- `handle` (required): Your Codeforces username
+
+**Query Parameters:**
+- `page` (optional, default=0): Page number (0-indexed)
+- `size` (optional, default=20): Items per page
+
+**Headers:**
+```json
+{
+  "Authorization": "Bearer <access_token>"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "content": [
+    {
+      "handle": "tourist",
+      "rating": 3950,
+      "maxRating": 3957,
+      "rank": "International Master",
+      "avatar": "https://codeforces.com/avatar/tourist.jpg",
+      "contestsParticipated": 450
+    },
+    {
+      "handle": "Petr",
+      "rating": 3815,
+      "maxRating": 3833,
+      "rank": "International Master",
+      "avatar": "https://codeforces.com/avatar/Petr.jpg",
+      "contestsParticipated": 420
+    }
+  ],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 2,
+    "totalPages": 1
+  }
+}
+```
+
+---
+
 ### Get Friends Leaderboard
 
 **Method:** GET  
@@ -1058,16 +1175,20 @@ Get a ranked leaderboard of you and all your friends sorted by current rating.
 
 ---
 
-### Get Unsolved Problems by Friends
+### Get Friends Leaderboard (Paginated)
 
 **Method:** GET  
-**URL:** `/friends/{handle}/unsolved-by-me`
+**URL:** `/friends/{handle}/leaderboard/paginated`
 
 **Description:**  
-Get problems that friends have solved but you haven't. Great for practice suggestions.
+Get a ranked leaderboard of you and all your friends sorted by current rating, with pagination support.
 
 **Path Parameters:**
 - `handle` (required): Your Codeforces username
+
+**Query Parameters:**
+- `page` (optional, default=0): Page number (0-indexed)
+- `size` (optional, default=20): Items per page
 
 **Headers:**
 ```json
@@ -1078,24 +1199,91 @@ Get problems that friends have solved but you haven't. Great for practice sugges
 
 **Success Response (200 OK):**
 ```json
-[
-  {
-    "contestId": 1860,
-    "index": "D",
-    "name": "Optimizing Orthogonal Tiling",
-    "rating": 2800,
-    "tags": ["binary search", "dp", "greedy"],
-    "solvedByFriends": ["tourist", "Petr"]
-  },
-  {
-    "contestId": 1850,
-    "index": "E",
-    "name": "Expected Value",
-    "rating": 3000,
-    "tags": ["math", "combinatorics", "probability"],
-    "solvedByFriends": ["tourist"]
+{
+  "content": [
+    {
+      "rank": 1,
+      "handle": "tourist",
+      "rating": 3950,
+      "tier": "International Master",
+      "maxRating": 3957
+    },
+    {
+      "rank": 2,
+      "handle": "myhandle",
+      "rating": 3720,
+      "tier": "Master",
+      "maxRating": 3750
+    },
+    {
+      "rank": 3,
+      "handle": "Petr",
+      "rating": 3815,
+      "tier": "International Master",
+      "maxRating": 3833
+    }
+  ],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 3,
+    "totalPages": 1
   }
-]
+}
+```
+
+---
+
+### Get Unsolved Problems by Friends (Paginated)
+
+**Method:** GET  
+**URL:** `/friends/{handle}/unsolved-by-me/paginated`
+
+**Description:**  
+Get problems that friends have solved but you haven't, with pagination. Great for practice suggestions.
+
+**Path Parameters:**
+- `handle` (required): Your Codeforces username
+
+**Query Parameters:**
+- `page` (optional, default=0): Page number (0-indexed)
+- `size` (optional, default=20): Items per page
+
+**Headers:**
+```json
+{
+  "Authorization": "Bearer <access_token>"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "content": [
+    {
+      "contestId": 1860,
+      "index": "D",
+      "name": "Optimizing Orthogonal Tiling",
+      "rating": 2800,
+      "tags": ["binary search", "dp", "greedy"],
+      "solvedByFriends": ["tourist", "Petr"]
+    },
+    {
+      "contestId": 1850,
+      "index": "E",
+      "name": "Expected Value",
+      "rating": 3000,
+      "tags": ["math", "combinatorics", "probability"],
+      "solvedByFriends": ["tourist"]
+    }
+  ],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 2,
+    "totalPages": 1
+  }
+}
 ```
 
 ---
@@ -1137,6 +1325,59 @@ Compare coding streak (consecutive days with submissions) with all friends.
     "lastSubmissionDate": "2026-04-11"
   }
 ]
+```
+
+---
+
+### Compare Submission Streak (Paginated)
+
+**Method:** GET  
+**URL:** `/friends/{handle}/streak-compare/paginated`
+
+**Description:**  
+Compare coding streak (consecutive days with submissions) with all friends, with pagination support.
+
+**Path Parameters:**
+- `handle` (required): Your Codeforces username
+
+**Query Parameters:**
+- `page` (optional, default=0): Page number (0-indexed)
+- `size` (optional, default=20): Items per page
+
+**Headers:**
+```json
+{
+  "Authorization": "Bearer <access_token>"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "content": [
+    {
+      "handle": "myhandle",
+      "currentStreak": 127,
+      "lastSubmissionDate": "2026-04-13"
+    },
+    {
+      "handle": "tourist",
+      "currentStreak": 89,
+      "lastSubmissionDate": "2026-04-12"
+    },
+    {
+      "handle": "Petr",
+      "currentStreak": 42,
+      "lastSubmissionDate": "2026-04-11"
+    }
+  ],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 3,
+    "totalPages": 1
+  }
+}
 ```
 
 ---
@@ -1185,6 +1426,66 @@ Get performance results of you and your friends in a specific contest.
     "ratingChange": 30
   }
 ]
+```
+
+---
+
+### Get Contest Overlap Results (Paginated)
+
+**Method:** GET  
+**URL:** `/friends/{handle}/contest-overlap/{contestId}/paginated`
+
+**Description:**  
+Get performance results of you and your friends in a specific contest, with pagination support.
+
+**Path Parameters:**
+- `handle` (required): Your Codeforces username
+- `contestId` (required): Contest ID
+
+**Query Parameters:**
+- `page` (optional, default=0): Page number (0-indexed)
+- `size` (optional, default=20): Items per page
+
+**Headers:**
+```json
+{
+  "Authorization": "Bearer <access_token>"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "content": [
+    {
+      "handle": "myhandle",
+      "rank": 145,
+      "oldRating": 3650,
+      "newRating": 3720,
+      "ratingChange": 70
+    },
+    {
+      "handle": "tourist",
+      "rank": 12,
+      "oldRating": 3920,
+      "newRating": 3950,
+      "ratingChange": 30
+    },
+    {
+      "handle": "Petr",
+      "rank": 87,
+      "oldRating": 3785,
+      "newRating": 3815,
+      "ratingChange": 30
+    }
+  ],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 3,
+    "totalPages": 1
+  }
+}
 ```
 
 ---
@@ -1910,9 +2211,9 @@ Success → User must re-login
 
 **Get Contest History:**
 
-5. **Frontend calls:** `GET /users/{handle}/contest-history` (authenticated)
-6. **Service Layer:** Fetch all contests user participated in with rating changes
-7. **Response:** Array of contest records with rating deltas
+5. **Frontend calls:** `GET /users/{handle}/contest-history/paginated` (authenticated)
+6. **Service Layer:** Fetch contests user participated in with rating changes, paginated
+7. **Response:** Page object wrapping contest records with rating deltas
 8. **Frontend Action:** Display as list or chart
 
 **Get Rating Graph Data:**
@@ -1941,8 +2242,8 @@ GET /users/{handle}/rating-graph
 GET /users/{handle}/submission-stats
   → Display verdict breakdown
   ↓
-GET /users/{handle}/contest-history
-  → Show recent contests table
+GET /users/{handle}/contest-history/paginated
+  → Show recent contests table (with pagination controls)
 ```
 
 ---
@@ -1982,13 +2283,13 @@ GET /users/{handle}/contest-history
 
 **Get Unsolved Problems by Friends:**
 
-11. **Frontend calls:** `GET /friends/{handle}/unsolved-by-me` (authenticated)
+11. **Frontend calls:** `GET /friends/{handle}/unsolved-by-me/paginated` (authenticated)
 12. **Service Layer:**
     - Get problems solved by each friend
     - Get problems solved by you
     - Find problems friends solved but you haven't
-    - Group by difficulty/tags
-13. **Response:** Array of problems with friend names who solved each
+    - Group by difficulty/tags and paginate
+13. **Response:** Page object wrapping problems with friend names who solved each
 14. **Frontend Action:** Display practice suggestions with "Solved by:" badges
 
 **Compare Streaks:**
@@ -2022,7 +2323,7 @@ GET /friends/{handle}/leaderboard
   → Sort by rating
   → Display ranked leaderboard
   ↓
-GET /friends/{handle}/unsolved-by-me
+GET /friends/{handle}/unsolved-by-me/paginated
   → Show practice suggestions
   ↓
 GET /friends/{handle}/streak-compare
@@ -2402,15 +2703,15 @@ Follow this exact sequence to implement a fully-functional frontend:
 3. Fetch and display user profile (`GET /users/{handle}/profile`)
 4. Fetch and display rating graph (`GET /users/{handle}/rating-graph`)
 5. Fetch and display submission stats (`GET /users/{handle}/submission-stats`)
-6. Fetch and display contest history (`GET /users/{handle}/contest-history`)
+6. Fetch and display contest history (`GET /users/{handle}/contest-history/paginated`)
 
 **Phase 3: Friend Features**
 1. Create "Add Friend" form (input friend's Codeforces handle)
-2. Fetch and display friends list (`GET /friends/{handle}`)
-3. Fetch and display leaderboard (`GET /friends/{handle}/leaderboard`)
+2. Fetch and display friends list (`GET /friends/{handle}`) or paginated (`GET /friends/{handle}/paginated`)
+3. Fetch and display leaderboard (`GET /friends/{handle}/leaderboard`) or paginated (`GET /friends/{handle}/leaderboard/paginated`)
 4. Implement friend removal feature (`DELETE /friends/{handle}/remove/{friendHandle}`)
-5. Fetch and display unsolved problems (`GET /friends/{handle}/unsolved-by-me`)
-6. Fetch and display streak comparison (`GET /friends/{handle}/streak-compare`)
+5. Fetch and display unsolved problems (`GET /friends/{handle}/unsolved-by-me/paginated`)
+6. Fetch and display streak comparison (`GET /friends/{handle}/streak-compare`) or paginated (`GET /friends/{handle}/streak-compare/paginated`)
 
 **Phase 4: Analytics & Insights**
 1. Create "Insights" page
@@ -2432,8 +2733,8 @@ Follow this exact sequence to implement a fully-functional frontend:
 **Phase 6: Advanced Features**
 1. Implement contest comparison (`GET /compare/rating`)
 2. Implement submission comparison (`POST /compare/find`)
-3. Implement contest overlap view (`GET /friends/{handle}/contest-overlap/{contestId}`)
-4. Implement pagination for contests (`GET /contests?page=0&size=20`)
+3. Implement contest overlap view (`GET /friends/{handle}/contest-overlap/{contestId}`) or paginated (`GET /friends/{handle}/contest-overlap/{contestId}/paginated`)
+4. Implement pagination for contests (`GET /contests?page=0&size=20`) and upcoming contests (`GET /contests/upcoming/paginated`)
 
 **Phase 7: Account Management**
 1. Implement password reset flow:
@@ -2650,16 +2951,16 @@ async function makeRequestWithBackoff(url) {
    → GET /users/{handle}/profile
    → GET /users/{handle}/rating-graph
    → GET /users/{handle}/submission-stats
-   → GET /users/{handle}/contest-history
+   → GET /users/{handle}/contest-history/paginated
    → All include: Authorization: Bearer <accessToken>
 
 6. Frontend should parallelize these GET requests (not sequential)
 
 7. User goes to Friends page
-   → GET /friends/{handle}
-   → GET /friends/{handle}/leaderboard
-   → GET /friends/{handle}/unsolved-by-me
-   → GET /friends/{handle}/streak-compare
+   → GET /friends/{handle}/paginated
+   → GET /friends/{handle}/leaderboard/paginated
+   → GET /friends/{handle}/unsolved-by-me/paginated
+   → GET /friends/{handle}/streak-compare/paginated
 
 8. User adds a friend
    → POST /friends/add with { userHandle, friendHandle }
